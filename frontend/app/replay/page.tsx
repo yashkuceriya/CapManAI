@@ -19,6 +19,7 @@ import { RadarPulse, ScrollUnfurl, BrainCircuit, LightningBolt, ShieldCheck } fr
 import { ThemedLoader } from '@/components/ThemedLoader'
 import { SkeletonCard } from '@/components/Skeleton'
 import { stripWatermarks } from '@/lib/sanitize'
+import { ScenarioCard } from '@/components/ScenarioCard'
 import { ResponseInput } from '@/components/ResponseInput'
 import { ProbeChat } from '@/components/ProbeChat'
 import { GradeDisplay } from '@/components/GradeDisplay'
@@ -550,13 +551,14 @@ export default function ReplayPage() {
             <p className="text-sm text-gray-300 leading-relaxed">You don't know which event this is yet. Analyze the scenario and respond as if you were trading live.</p>
           </div>
 
-          <div className="card-stat">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300">{scenarioData.market_regime?.replace(/_/g, ' ')}</span>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300">{scenarioData.difficulty}</span>
-            </div>
-            <p className="text-gray-200 whitespace-pre-line text-sm leading-relaxed">{stripWatermarks(scenarioData.context_prompt)}</p>
-          </div>
+          <ScenarioCard
+            contextPrompt={scenarioData.context_prompt}
+            marketData={scenarioData.market_data}
+            difficulty={scenarioData.difficulty}
+            objectives={scenarioData.learning_objectives}
+            marketRegime={scenarioData.market_regime}
+            companyName={scenarioData.company_name}
+          />
 
           <ResponseInput
             onSubmit={handleSubmitResponse}
