@@ -12,7 +12,6 @@ Flow:
 5. After grading → REVEAL: "You just traded the March 2020 COVID crash"
 6. Show what actually happened + how the student's trade would have performed
 """
-import asyncio
 import json
 import random
 from datetime import datetime, timedelta
@@ -451,16 +450,14 @@ class ReplayEngine:
             if obj_id in LEARNING_OBJECTIVES
         ]
 
-        # 2-3. Parallelize historical data fetching and RAG context retrieval
-        historical_data, rag_context = await asyncio.gather(
-            self._fetch_historical_context(
-                symbol=symbol,
-                date_range=event["date_range"],
-            ),
-            self.rag.retrieve_for_scenario(
-                event["regime"],
-                objective_names,
-            ),
+        # 2-3. Fetch RAG context (sync) and historical data (async)
+        rag_context = self.rag.retrieve_for_scenario(
+            event["regime"],
+            objective_names,
+        )
+        historical_data = await self._fetch_historical_context(
+            symbol=symbol,
+            date_range=event["date_range"],
         )
 
         # 4. Generate the scenario WITHOUT revealing the event identity
