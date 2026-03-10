@@ -56,6 +56,12 @@ _KEYWORD_SECTIONS: dict[str, list[str]] = {
     "crypto_vol": ["Bitcoin Dominance", "Crypto", "Stablecoin", "Funding Rates", "Exchange Reserves"],
     "microstructure": ["Dark Pool Ratio", "Effective Spread", "Flash Crash", "Auction Imbalance", "Market Microstructure"],
     "geopolitical_alt": ["Geopolitical Stress", "Election Poll", "Satellite Imagery", "ESG Scores", "Alternative Data"],
+    # Vol Framework §7 — Sentiment
+    "sentiment_analysis": ["Put/Call Ratio", "AAII Sentiment", "Fear & Greed", "Fund Flows", "Insider Activity", "Retail Gamma"],
+    # Vol Framework §20 — Portfolio Management
+    "portfolio_management": ["Sharpe Ratio", "Sortino Ratio", "Max Drawdown", "Kelly Criterion", "Position Sizing", "Portfolio Management"],
+    # Vol Framework §13 — Exotic & Structural (supplement gex_mechanics)
+    "exotic_structural": ["Variance Swap", "Volatility Swap", "Dispersion Trade", "Correlation Swap", "VIX Futures", "Exotic"],
 }
 
 
