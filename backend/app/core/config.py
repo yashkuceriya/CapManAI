@@ -8,9 +8,13 @@ load_dotenv()
 
 
 def _normalize_database_url(url: str) -> str:
-    """Railway and others may provide postgres://; asyncpg needs postgresql+asyncpg://."""
-    if url and url.startswith("postgres://"):
+    """Railway and others may provide postgres:// or postgresql://; asyncpg needs postgresql+asyncpg://."""
+    if not url:
+        return url
+    if url.startswith("postgres://"):
         return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
     return url
 
 
