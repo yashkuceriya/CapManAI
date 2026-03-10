@@ -47,5 +47,8 @@ async def get_db() -> AsyncSession:
 
 
 async def init_db():
+    if settings.DATABASE_URL.startswith("postgresql"):
+        # PostgreSQL: Alembic manages schema — skip create_all to avoid conflicts
+        return
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
