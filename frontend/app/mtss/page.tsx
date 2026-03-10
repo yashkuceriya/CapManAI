@@ -1,11 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation'
 import { mtss } from '@/lib/api'
 import { AlertCircle, Users, X, Shield } from 'lucide-react'
 import { MTSSHeatmap } from '@/components/MTSSHeatmap'
 
 export default function MTSSPage() {
+  const router = useRouter()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [overview, setOverview] = useState<any>(null)
   const [heatmapData, setHeatmapData] = useState<any[]>([])
   const [alerts, setAlerts] = useState<any[]>([])
@@ -14,6 +18,17 @@ export default function MTSSPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login')
+    }
+    if (!authLoading && isAuthenticated && user?.role === 'student') {
+      router.push('/')
+    }
+  }, [authLoading, isAuthenticated, user, router])
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return
+    if (user?.role === 'student') return
     const fetchData = async () => {
       try {
         const [overviewData, objectivesData, alertsData] = await Promise.all([
@@ -24,7 +39,8 @@ export default function MTSSPage() {
         setOverview(overviewData)
         setHeatmapData(objectivesData.heatmap || [])
         setAlerts(alertsData.alerts || [])
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.response?.status === 401) return
         setError('Failed to load MTSS data.')
         console.error(err)
       } finally {
@@ -32,7 +48,7 @@ export default function MTSSPage() {
       }
     }
     fetchData()
-  }, [])
+  }, [authLoading, isAuthenticated, user])
 
   const handleSelectStudent = async (userId: string) => {
     try {

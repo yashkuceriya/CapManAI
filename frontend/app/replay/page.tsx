@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation'
 import { scenarios } from '@/lib/api'
 import { Calendar, ArrowLeft, Zap, Flame, AlertTriangle, Trophy } from 'lucide-react'
 import { RadarPulse } from '@/components/AnimatedIcons'
@@ -14,6 +16,8 @@ import { XPAnimation } from '@/components/XPAnimation'
 type ReplayState = 'event_select' | 'generating' | 'scenario_ready' | 'submitting' | 'grading' | 'graded'
 
 export default function ReplayPage() {
+  const router = useRouter()
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [state, setState] = useState<ReplayState>('event_select')
   const [allEvents, setAllEvents] = useState<any[]>([])
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
@@ -26,18 +30,26 @@ export default function ReplayPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login')
+    }
+  }, [authLoading, isAuthenticated, router])
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return
     const fetchEvents = async () => {
       try {
         const data = await scenarios.listReplayEvents()
         setAllEvents(data.events || [])
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.response?.status === 401) return
         setError('Failed to load replay events.')
       } finally {
         setLoading(false)
       }
     }
     fetchEvents()
-  }, [])
+  }, [authLoading, isAuthenticated])
 
   // Filter events client-side by selected difficulty
   const filteredEvents = useMemo(
