@@ -364,12 +364,14 @@ export default function PeerReviewPage() {
     }
   }
 
-  // Load initial data
+  // Load initial data — wait for auth to fully resolve
   useEffect(() => {
-    if (isAuthenticated && pageState === 'browsing') {
+    if (authLoading || !isAuthenticated) return
+    if (user?.role === 'student') return // about to redirect
+    if (pageState === 'browsing') {
       fetchAvailable()
     }
-  }, [isAuthenticated, pageState])
+  }, [authLoading, isAuthenticated, user, pageState])
 
   // Claim session for review
   const handleClaimSession = async (sessionId: string) => {

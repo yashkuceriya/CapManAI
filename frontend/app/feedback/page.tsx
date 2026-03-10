@@ -37,9 +37,11 @@ export default function FeedbackPage() {
     }
   }, [authLoading, isAuthenticated, user, router])
 
-  // Fetch received reviews
+  // Fetch received reviews — wait for auth to fully resolve first
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (authLoading || !isAuthenticated) return
+    // Don't fetch if we're about to redirect educators away
+    if (user?.role === 'educator') return
 
     const fetchReviews = async () => {
       try {
@@ -47,7 +49,9 @@ export default function FeedbackPage() {
         setError(null)
         const data = await peerReview.myReceived()
         setReviews(data.reviews || [])
-      } catch (err) {
+      } catch (err: any) {
+        // Don't surface 401 errors — the axios interceptor handles logout
+        if (err?.response?.status === 401) return
         const message = err instanceof Error ? err.message : 'Failed to load feedback'
         setError(message)
       } finally {
@@ -56,7 +60,7 @@ export default function FeedbackPage() {
     }
 
     fetchReviews()
-  }, [isAuthenticated])
+  }, [authLoading, isAuthenticated, user])
 
   if (authLoading) {
     return (
