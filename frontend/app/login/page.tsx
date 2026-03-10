@@ -64,8 +64,8 @@ export default function LoginPage() {
           setLoading(false)
           return
         }
-        if (formData.password.length < 6) {
-          setError('Password must be at least 6 characters')
+        if (formData.password.length < 8) {
+          setError('Password must be at least 8 characters')
           setLoading(false)
           return
         }
@@ -75,7 +75,14 @@ export default function LoginPage() {
       setFormData({ username: '', email: '', password: '', confirmPassword: '' })
       router.push('/')
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Authentication failed. Please try again.')
+      const detail = err.response?.data?.detail
+      if (typeof detail === 'string') {
+        setError(detail)
+      } else if (Array.isArray(detail)) {
+        setError(detail.map((d: any) => d.msg).join(', '))
+      } else {
+        setError('Authentication failed. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
