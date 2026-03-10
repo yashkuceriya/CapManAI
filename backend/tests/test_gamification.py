@@ -53,7 +53,6 @@ class TestXPCalculation:
             + result["grade_bonus"]
             + result["streak_bonus"]
             + result["perfect_bonus"]
-            + result["peer_review"]
             + result["h2h"]
         )
         assert result["total"] == expected
@@ -134,11 +133,10 @@ class TestMasteryUnlocks:
         result = engine.check_mastery_unlocks(progress)
         assert result["advanced_scenarios"] is False
 
-    def test_peer_review_requires_trade_construction_avg_65(self):
+    def test_elite_requires_all_above_85(self):
         progress = [
-            {"objective_id": "trade_thesis", "mastery_score": 70},
-            {"objective_id": "strike_selection", "mastery_score": 65},
-            {"objective_id": "structure_selection", "mastery_score": 60},
+            {"objective_id": "a", "mastery_score": 90},
+            {"objective_id": "b", "mastery_score": 86},
         ]
         result = engine.check_mastery_unlocks(progress)
-        assert result["peer_review"] is True
+        assert result["elite_scenarios"] is True

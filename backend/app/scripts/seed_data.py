@@ -18,7 +18,7 @@ DEMO_USERS = [
     {"username": "morgan_pro", "email": "morgan@capman.dev", "role": "student", "xp": 14000, "level": 6, "scenarios_completed": 120, "streak_days": 30},
     {"username": "drew_steady", "email": "drew@capman.dev", "role": "student", "xp": 3000, "level": 3, "scenarios_completed": 35, "streak_days": 7},
     {"username": "pat_struggle", "email": "pat@capman.dev", "role": "student", "xp": 400, "level": 1, "scenarios_completed": 8, "streak_days": 0},
-    {"username": "coach_smith", "email": "coach@capman.dev", "role": "educator"},
+    {"username": "coach_smith", "email": "coach@capman.dev", "role": "educator", "password": "CapmanCoach1"},
     {"username": "admin_capman", "email": "admin@capman.dev", "role": "admin"},
 ]
 
@@ -97,7 +97,13 @@ async def seed_demo_data():
             result = await db.execute(
                 select(User).where(User.username == user_data["username"])
             )
-            if not result.scalar_one_or_none():
+            existing = result.scalar_one_or_none()
+            if existing:
+                # Ensure password is set for users that have one defined
+                if "password" in user_data and not existing.password_hash:
+                    from app.core.auth import hash_password
+                    existing.password_hash = hash_password(user_data["password"])
+            else:
                 user_kwargs = {
                     "username": user_data["username"],
                     "email": user_data["email"],
@@ -110,6 +116,10 @@ async def seed_demo_data():
                 # Use explicit ID if provided (for demo/testing routes)
                 if "id" in user_data:
                     user_kwargs["id"] = user_data["id"]
+                # Hash and store password when present (for demo login)
+                if "password" in user_data:
+                    from app.core.auth import hash_password
+                    user_kwargs["password_hash"] = hash_password(user_data["password"])
                 user = User(**user_kwargs)
                 db.add(user)
 

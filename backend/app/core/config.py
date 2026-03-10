@@ -80,7 +80,6 @@ class Settings(BaseSettings):
     XP_BASE_SCENARIO: int = 50
     XP_MAX_GRADE_BONUS: int = 50
     XP_STREAK_BONUS: int = 25
-    XP_PEER_REVIEW: int = 15
     XP_H2H_WIN: int = 75
     XP_H2H_LOSE: int = 25
     XP_PERFECT_SCORE_BONUS: int = 100
