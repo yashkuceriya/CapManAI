@@ -1,0 +1,26 @@
+# Environment and secrets (paste keys in .env; do not commit)
+.env
+.env.local
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test / run artifacts
+.e2e_server.pid
+*.log

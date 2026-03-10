@@ -1,0 +1,48 @@
+# CapMan AI — Full-stack local development / staging
+# Usage: docker compose up --build
+# Requires: .env file in project root with ANTHROPIC_API_KEY and FMP_API_KEY
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: capman
+      POSTGRES_USER: capman
+      POSTGRES_PASSWORD: capman-dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U capman"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://capman:capman-dev@postgres:5432/capman
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      FMP_API_KEY: ${FMP_API_KEY}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production-32chars}
+      CORS_ORIGINS: http://localhost:3000,http://frontend:3000
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
