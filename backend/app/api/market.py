@@ -1,11 +1,19 @@
 """Market data API — live quotes and trading flash cards."""
+import logging
 import random
 from fastapi import APIRouter
 
 from app.services.market_data import get_market_data_adapter
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/market", tags=["market"])
+
+TICKER_TAPE_SYMBOLS = [
+    "SPY", "QQQ", "AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "GOOGL",
+    "META", "JPM", "V", "AMD", "NFLX", "DIS", "BA", "GS",
+]
 
 # Trading flash card facts (static knowledge)
 TRADING_FACTS = [
@@ -37,31 +45,99 @@ TRADING_FACTS = [
 
 
 @router.get("/quotes")
-async def get_market_quotes():
-    """Get current quotes for all scenario symbols — used for dashboard flash cards."""
+async def get_market_quotes(symbols: str | None = None):
+    """Get current quotes for ticker tape / dashboard.
+
+    Optional ``symbols`` query param: comma-separated list (e.g. "AAPL,MSFT").
+    Defaults to the 16 ticker-tape symbols when omitted.
+    """
     adapter = get_market_data_adapter()
     is_live = bool(settings.FMP_API_KEY and settings.FMP_API_KEY != "your_fmp_api_key_here")
 
-    from app.agents.scenario_engine import SCENARIO_SYMBOLS, SYMBOL_NAMES
+    from app.agents.scenario_engine import SYMBOL_NAMES
 
+    if symbols:
+        requested = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    else:
+        requested = TICKER_TAPE_SYMBOLS
+
+    # Try batch fetch (FMP supports comma-separated symbols in one request)
+    quotes = await _batch_quotes(adapter, requested, SYMBOL_NAMES)
+
+    return {
+        "quotes": quotes,
+        "data_source": "live" if is_live else "simulated",
+    }
+
+
+async def _batch_quotes(adapter, symbols: list[str], names: dict) -> list[dict]:
+    """Fetch quotes, trying FMP batch endpoint first, then falling back to sequential."""
+    import httpx
+
+    # FMP batch: /api/v3/quote/AAPL,MSFT,...
+    if hasattr(adapter, "api_key") and adapter.api_key:
+        try:
+            batch_url = f"https://financialmodelingprep.com/api/v3/quote/{','.join(symbols)}"
+            client = getattr(adapter, "client", None)
+            if client is None:
+                client = httpx.AsyncClient(timeout=15.0)
+            resp = await client.get(batch_url, params={"apikey": adapter.api_key})
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, list) and data:
+                return [
+                    {
+                        "symbol": q.get("symbol", ""),
+                        "company_name": names.get(q.get("symbol", ""), q.get("symbol", "")),
+                        "price": q.get("price", 0),
+                        "change": q.get("change", 0),
+                        "change_percent": q.get("changesPercentage", 0),
+                    }
+                    for q in data
+                ]
+        except Exception as e:
+            logger.warning("FMP batch quote failed, falling back to sequential: %s", e)
+
+    # Fallback: if adapter is HybridAdapter, reach into its fmp adapter
+    fmp = getattr(adapter, "fmp", None)
+    if fmp and hasattr(fmp, "api_key") and fmp.api_key:
+        try:
+            batch_url = f"https://financialmodelingprep.com/api/v3/quote/{','.join(symbols)}"
+            client = getattr(fmp, "client", None)
+            if client is None:
+                client = httpx.AsyncClient(timeout=15.0)
+            resp = await client.get(batch_url, params={"apikey": fmp.api_key})
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, list) and data:
+                return [
+                    {
+                        "symbol": q.get("symbol", ""),
+                        "company_name": names.get(q.get("symbol", ""), q.get("symbol", "")),
+                        "price": q.get("price", 0),
+                        "change": q.get("change", 0),
+                        "change_percent": q.get("changesPercentage", 0),
+                    }
+                    for q in data
+                ]
+        except Exception as e:
+            logger.warning("FMP batch (via hybrid) failed, falling back to sequential: %s", e)
+
+    # Sequential fallback (mock adapter or no FMP key)
     quotes = []
-    for symbol in SCENARIO_SYMBOLS[:6]:  # Top 6 for speed
+    for symbol in symbols:
         try:
             q = await adapter.get_stock_quote(symbol)
             quotes.append({
                 "symbol": symbol,
-                "company_name": SYMBOL_NAMES.get(symbol, symbol),
+                "company_name": names.get(symbol, symbol),
                 "price": q.get("price", 0),
                 "change": q.get("change", 0),
                 "change_percent": q.get("change_percent", 0),
             })
         except Exception:
             continue
-
-    return {
-        "quotes": quotes,
-        "data_source": "live" if is_live else "simulated",
-    }
+    return quotes
 
 
 @router.get("/flashcards")

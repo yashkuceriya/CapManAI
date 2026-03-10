@@ -10,54 +10,13 @@ import {
 } from 'lucide-react'
 import { stripWatermarks } from '@/lib/sanitize'
 import {
-  PulsingSword,
   RadarPulse,
   BrainCircuit,
-  ShieldCheck,
-  TrophySparkle,
-  LightningBolt,
-  GemStone,
   ScrollUnfurl
 } from '@/components/AnimatedIcons'
 import { ThemedLoader } from '@/components/ThemedLoader'
 
 type PageState = 'browsing' | 'claiming' | 'reviewing' | 'submitting' | 'submitted'
-type TabType = 'available' | 'received'
-
-// Animated Number Component
-interface AnimatedNumberProps {
-  value: number
-  duration?: number
-}
-
-function AnimatedNumber({ value, duration = 1000 }: AnimatedNumberProps) {
-  const [displayValue, setDisplayValue] = useState(0)
-  const [hasAnimated, setHasAnimated] = useState(false)
-
-  useEffect(() => {
-    if (hasAnimated) return
-
-    let startTime: number | null = null
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp
-      const elapsed = timestamp - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      setDisplayValue(Math.floor(value * progress))
-
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      } else {
-        setDisplayValue(value)
-        setHasAnimated(true)
-      }
-    }
-
-    requestAnimationFrame(animate)
-  }, [value, duration, hasAnimated])
-
-  return <>{displayValue}</>
-}
-
 // Animated Checkmark Component
 function AnimatedCheckmark() {
   return (
@@ -186,30 +145,6 @@ interface ReviewSession {
     market_regime: string
     learning_objectives: string[]
   }
-}
-
-interface ReceivedReview {
-  session_id: string
-  reviewer_id: string
-  reviewer_username: string
-  peer_review_score: number
-  peer_review_feedback: string
-  overall_score: number
-  completed_at: string
-}
-
-interface SubmitResponse {
-  session_id: string
-  status: string
-  xp_earned: {
-    total: number
-    base: number
-    peer_review: number
-    [key: string]: number
-  }
-  level_before: number
-  level_after: number
-  level_info: { level: number; next_threshold: number }
 }
 
 // Animated Score Bar Component
@@ -384,12 +319,11 @@ function SessionCardItem({
 
 export default function PeerReviewPage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const dimensionBarsRef = useRef<HTMLDivElement>(null)
 
   // State management
   const [pageState, setPageState] = useState<PageState>('browsing')
-  const [activeTab, setActiveTab] = useState<TabType>('available')
   const [error, setError] = useState<string | null>(null)
   const [scoreAnimated, setScoreAnimated] = useState(false)
 
@@ -397,24 +331,22 @@ export default function PeerReviewPage() {
   const [availableSessions, setAvailableSessions] = useState<AvailableSession[]>([])
   const [loadingAvailable, setLoadingAvailable] = useState(false)
 
-  // Received reviews
-  const [receivedReviews, setReceivedReviews] = useState<ReceivedReview[]>([])
-  const [loadingReceived, setLoadingReceived] = useState(false)
-
   // Current review session
   const [currentSession, setCurrentSession] = useState<ReviewSession | null>(null)
   const [reviewScore, setReviewScore] = useState(0)
   const [reviewFeedback, setReviewFeedback] = useState('')
 
-  // Submission result
-  const [submitResult, setSubmitResult] = useState<SubmitResponse | null>(null)
 
   // Auth check — wait for auth loading before redirecting
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/login')
     }
-  }, [authLoading, isAuthenticated, router])
+    // Students should use the /feedback page instead
+    if (!authLoading && isAuthenticated && user?.role === 'student') {
+      router.push('/feedback')
+    }
+  }, [authLoading, isAuthenticated, user, router])
 
   // Fetch available sessions
   const fetchAvailable = async () => {
@@ -432,32 +364,12 @@ export default function PeerReviewPage() {
     }
   }
 
-  // Fetch received reviews
-  const fetchReceived = async () => {
-    try {
-      setLoadingReceived(true)
-      setError(null)
-      const data = await peerReview.myReceived()
-      setReceivedReviews(data.reviews || [])
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load received reviews'
-      setError(message)
-      console.error('Error fetching received reviews:', err)
-    } finally {
-      setLoadingReceived(false)
-    }
-  }
-
   // Load initial data
   useEffect(() => {
     if (isAuthenticated && pageState === 'browsing') {
-      if (activeTab === 'available') {
-        fetchAvailable()
-      } else {
-        fetchReceived()
-      }
+      fetchAvailable()
     }
-  }, [isAuthenticated, pageState, activeTab])
+  }, [isAuthenticated, pageState])
 
   // Claim session for review
   const handleClaimSession = async (sessionId: string) => {
@@ -488,12 +400,11 @@ export default function PeerReviewPage() {
     try {
       setPageState('submitting')
       setError(null)
-      const result = await peerReview.submit(
+      await peerReview.submit(
         currentSession.session_id,
         reviewScore,
         reviewFeedback
       )
-      setSubmitResult(result as SubmitResponse)
       setPageState('submitted')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to submit review'
@@ -516,9 +427,7 @@ export default function PeerReviewPage() {
     setCurrentSession(null)
     setReviewScore(0)
     setReviewFeedback('')
-    setSubmitResult(null)
     setPageState('browsing')
-    setActiveTab('available')
     fetchAvailable()
   }
 
@@ -650,86 +559,6 @@ export default function PeerReviewPage() {
               onClaim={handleClaimSession}
               getDifficultyColor={getDifficultyColor}
             />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-
-  // Render browsing state - Received tab
-  const renderReceivedTab = () => (
-    <div className="animate-fade-in">
-      <h3 className="text-2xl font-bold text-white mb-6">Reviews Received</h3>
-
-      {error && (
-        <div className="card border-l-4 border-red-500 bg-red-500/5 mb-6">
-          <div className="flex items-start gap-3">
-            <div className="text-red-400 mt-1">
-              <MessageSquare size={20} />
-            </div>
-            <div>
-              <p className="font-medium text-red-300">Error</p>
-              <p className="text-sm text-red-200">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {loadingReceived ? (
-        <div className="flex items-center justify-center py-12">
-          <ThemedLoader variant="pulse-ring" text="Loading reviews..." />
-        </div>
-      ) : receivedReviews.length === 0 ? (
-        <div className="card text-center py-12">
-          <div className="mx-auto mb-4 w-10 h-10 text-gray-600">
-            <TrophySparkle />
-          </div>
-          <p className="text-gray-400">No peer reviews received yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-4 stagger-children">
-          {receivedReviews.map((review, idx) => (
-            <div
-              key={review.session_id}
-              className="card-glow border-2 border-violet-500/30 relative overflow-hidden"
-              style={{
-                animation: `fadeInUp 0.5s ease-out ${idx * 0.1}s both`,
-              }}
-            >
-              <div className="flex items-start justify-between mb-5">
-                <div>
-                  <p className="text-sm text-gray-400">Reviewed by</p>
-                  <p className="font-bold text-white text-lg mt-1">{review.reviewer_username}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(review.completed_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-gradient-to-br from-violet-500/20 to-violet-600/10 border border-violet-500/30 animate-pulse">
-                    <div className="text-center">
-                      <div className={`text-2xl font-black ${getScoreColor(review.peer_review_score)}`}>
-                        {review.peer_review_score}
-                      </div>
-                      <div className="text-xs text-gray-500">/ 100</div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-3 font-medium">AI: {review.overall_score}</p>
-                </div>
-              </div>
-
-              {review.peer_review_feedback && (
-                <div className="bg-violet-500/5 border border-violet-500/20 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-gray-300 leading-relaxed">{review.peer_review_feedback}</p>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 text-xs text-violet-300 font-semibold">
-                <div className="w-4 h-4">
-                  <TrophySparkle />
-                </div>
-                <span>Peer feedback provided</span>
-              </div>
-            </div>
           ))}
         </div>
       )}
@@ -949,55 +778,12 @@ export default function PeerReviewPage() {
         <ConfettiParticles />
       </div>
 
-      {submitResult && (
-        <div className="space-y-6">
-          {/* XP Earned */}
-          <div className="card">
-            <h3 className="text-sm text-gray-400 mb-3">XP Earned</h3>
-            <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-4xl font-bold text-amber-400">
-                +<AnimatedNumber value={submitResult.xp_earned.total} duration={1200} />
-              </span>
-              <span className="text-lg text-gray-500">XP</span>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-gray-300">
-                <span>Base XP</span>
-                <span>+{submitResult.xp_earned.base}</span>
-              </div>
-              <div className="flex justify-between text-gray-300">
-                <span>Peer Review Bonus</span>
-                <span>+{submitResult.xp_earned.peer_review || 15}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Level Up Notification */}
-          {submitResult.level_after > submitResult.level_before && (
-            <div className="card border-2 border-emerald-500/50 bg-emerald-500/5">
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 text-emerald-400">
-                  <TrophySparkle />
-                </div>
-                <div>
-                  <p className="font-semibold text-emerald-300">Level Up!</p>
-                  <p className="text-sm text-emerald-200">
-                    You reached Level {submitResult.level_after}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Review Another Button */}
-          <button
-            onClick={handleReviewAnother}
-            className="btn-primary w-full"
-          >
-            Review Another
-          </button>
-        </div>
-      )}
+      <button
+        onClick={handleReviewAnother}
+        className="btn-primary w-full"
+      >
+        Review Another
+      </button>
     </div>
   )
 
@@ -1012,63 +798,14 @@ export default function PeerReviewPage() {
               <RadarPulse />
             </div>
             <div>
-              <h1 className="text-4xl font-black text-white">Peer Review</h1>
-              <p className="text-gray-300 text-sm mt-1">Evaluate peer analyses and earn +15 XP per review</p>
+              <h1 className="text-4xl font-black text-white">Session Reviews</h1>
+              <p className="text-gray-300 text-sm mt-1">Review student trading analyses and provide feedback</p>
             </div>
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        {pageState === 'browsing' && (
-          <div className="flex gap-2 mb-8 relative">
-            <style>{`
-              @keyframes gradientShift {
-                0%, 100% { background-position: 0% 50%; }
-                50% { background-position: 100% 50%; }
-              }
-            `}</style>
-            <button
-              onClick={() => setActiveTab('available')}
-              className={`px-6 py-3 font-bold transition-all relative ${
-                activeTab === 'available'
-                  ? 'text-white'
-                  : 'text-gray-400 hover:text-gray-300'
-              }`}
-            >
-              Available to Review
-              {activeTab === 'available' && (
-                <div
-                  className="absolute bottom-0 left-0 right-0 h-1.5 rounded-full bg-gradient-to-r from-violet-500 via-violet-400 to-violet-500 bg-200% animate-pulse"
-                  style={{
-                    boxShadow: '0 0 20px rgba(168, 85, 247, 0.6)',
-                  }}
-                ></div>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('received')}
-              className={`px-6 py-3 font-bold transition-all relative ${
-                activeTab === 'received'
-                  ? 'text-white'
-                  : 'text-gray-400 hover:text-gray-300'
-              }`}
-            >
-              Reviews Received
-              {activeTab === 'received' && (
-                <div
-                  className="absolute bottom-0 left-0 right-0 h-1.5 rounded-full bg-gradient-to-r from-violet-500 via-violet-400 to-violet-500 bg-200% animate-pulse"
-                  style={{
-                    boxShadow: '0 0 20px rgba(168, 85, 247, 0.6)',
-                  }}
-                ></div>
-              )}
-            </button>
-          </div>
-        )}
-
         {/* Content */}
-        {pageState === 'browsing' && activeTab === 'available' && renderAvailableTab()}
-        {pageState === 'browsing' && activeTab === 'received' && renderReceivedTab()}
+        {pageState === 'browsing' && renderAvailableTab()}
         {pageState === 'claiming' && renderClaiming()}
         {pageState === 'reviewing' && renderReviewing()}
         {pageState === 'submitting' && renderSubmitting()}

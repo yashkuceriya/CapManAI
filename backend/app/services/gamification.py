@@ -11,7 +11,6 @@ class GamificationEngine:
         self,
         overall_score: float,
         streak_days: int = 0,
-        is_peer_review: bool = False,
         is_h2h_win: bool = False,
         is_h2h_lose: bool = False,
     ) -> dict:
@@ -36,12 +35,6 @@ class GamificationEngine:
             breakdown["perfect_bonus"] = settings.XP_PERFECT_SCORE_BONUS
         else:
             breakdown["perfect_bonus"] = 0
-
-        # Peer review bonus
-        if is_peer_review:
-            breakdown["peer_review"] = settings.XP_PEER_REVIEW
-        else:
-            breakdown["peer_review"] = 0
 
         # Head-to-head bonus
         if is_h2h_win:
@@ -120,7 +113,6 @@ class GamificationEngine:
                 "intermediate_scenarios": False,
                 "advanced_scenarios": False,
                 "head_to_head": False,
-                "peer_review": False,
                 "elite_scenarios": False,
             }
 
@@ -130,15 +122,9 @@ class GamificationEngine:
         above_75 = all(s >= 75 for s in scores.values()) if scores else False
         above_85 = all(s >= 85 for s in scores.values()) if scores else False
 
-        # Peer review: based on "trade construction" objectives (IDs, not category)
-        trade_construction_ids = ("trade_thesis", "strike_selection", "structure_selection")
-        trade_scores = [scores.get(oid, 0) for oid in trade_construction_ids]
-        avg_trade_construction = sum(trade_scores) / len(trade_scores) if trade_scores else 0
-
         return {
             "intermediate_scenarios": above_60 >= 3,
             "advanced_scenarios": above_75,
             "head_to_head": above_50 >= 3,
-            "peer_review": avg_trade_construction >= 65,
             "elite_scenarios": above_85,
         }

@@ -1,21 +1,17 @@
-"""Peer Review — evaluate other students' trading analyses for XP."""
+"""Session Reviews — educator feedback on student trading analyses."""
 import uuid
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
-from typing import Optional
 
 from app.core.database import get_db
-from app.core.auth import get_current_user, get_optional_user, require_educator
+from app.core.auth import get_current_user, require_educator
 from app.models.database_models import ScenarioSession, Scenario, User
-from app.services.gamification import GamificationEngine
 from app.services.event_logger import EventLogger
 
 router = APIRouter(prefix="/api/peer-review", tags=["peer_review"])
-
-gamification = GamificationEngine()
 
 
 class PeerReviewSubmit(BaseModel):
@@ -29,17 +25,17 @@ class PeerReviewSubmit(BaseModel):
 
 @router.get("/available")
 async def list_available_sessions(
-    current_user: Optional[User] = Depends(get_optional_user),
+    current_user: User = Depends(require_educator),
     db: AsyncSession = Depends(get_db),
 ):
-    """List graded sessions available for peer review.
+    """List graded sessions available for educator review.
 
     Returns sessions that are:
     - status="graded"
     - peer_reviewed_by IS NULL (not yet claimed)
     - user_id != current user (can't review your own)
     """
-    user_id = current_user.id if current_user else "demo-user"
+    user_id = current_user.id
 
     result = await db.execute(
         select(ScenarioSession).where(
@@ -85,10 +81,10 @@ async def list_available_sessions(
 @router.post("/{session_id}/claim")
 async def claim_session(
     session_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_educator),
     db: AsyncSession = Depends(get_db),
 ):
-    """Claim a session for peer review.
+    """Claim a session for educator review.
 
     Sets peer_reviewed_by to prevent others from claiming the same session.
     """
@@ -149,10 +145,10 @@ async def claim_session(
 async def submit_review(
     session_id: str,
     request: PeerReviewSubmit,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_educator),
     db: AsyncSession = Depends(get_db),
 ):
-    """Submit peer review score and feedback. Awards +15 XP to reviewer."""
+    """Submit educator review score and feedback."""
     logger = EventLogger(db)
     user_id = current_user.id
 
@@ -173,37 +169,17 @@ async def submit_review(
     session.peer_review_score = score
     session.peer_review_feedback = request.peer_review_feedback
 
-    # Award XP to the reviewer
-    reviewer = current_user
-
-    level_before = reviewer.level
-
-    xp_breakdown = gamification.calculate_xp(
-        overall_score=100,  # Fixed for peer review
-        streak_days=reviewer.streak_days or 0,
-        is_peer_review=True,
-    )
-
-    reviewer.xp += xp_breakdown["total"]
-    level_info = gamification.calculate_level(reviewer.xp)
-    reviewer.level = level_info["level"]
-
     await db.flush()
 
     await logger.log(user_id, "peer_review_submitted", {
         "session_id": session_id,
         "session_owner": session.user_id,
         "peer_review_score": score,
-        "xp_earned": xp_breakdown["total"],
     }, session_id=session_id)
 
     return {
         "session_id": session_id,
         "status": "submitted",
-        "xp_earned": xp_breakdown,
-        "level_before": level_before,
-        "level_after": reviewer.level,
-        "level_info": level_info,
     }
 
 
@@ -213,11 +189,11 @@ async def submit_review(
 
 @router.get("/my-reviews")
 async def my_reviews(
-    current_user: Optional[User] = Depends(get_optional_user),
+    current_user: User = Depends(require_educator),
     db: AsyncSession = Depends(get_db),
 ):
-    """List sessions the current user has reviewed."""
-    user_id = current_user.id if current_user else "demo-user"
+    """List sessions the current educator has reviewed."""
+    user_id = current_user.id
 
     result = await db.execute(
         select(ScenarioSession).where(
@@ -251,11 +227,11 @@ async def my_reviews(
 
 @router.get("/my-received")
 async def my_received_reviews(
-    current_user: Optional[User] = Depends(get_optional_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List peer reviews received on the current user's sessions."""
-    user_id = current_user.id if current_user else "demo-user"
+    """List educator reviews received on the current user's sessions."""
+    user_id = current_user.id
 
     result = await db.execute(
         select(ScenarioSession).where(

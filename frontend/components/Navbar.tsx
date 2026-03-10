@@ -12,7 +12,6 @@ const navLinks = [
   { href: '/replay', label: 'Replay', hoverColor: 'hover:text-amber-400' },
   { href: '/leaderboard', label: 'Leaderboard', hoverColor: 'hover:text-purple-400' },
   { href: '/h2h', label: 'H2H', hoverColor: 'hover:text-cyan-400' },
-  { href: '/peer-review', label: 'Peer Review', hoverColor: 'hover:text-violet-400' },
 ]
 
 export function Navbar() {
@@ -68,6 +67,23 @@ export function Navbar() {
               })}
               {(user?.role === 'educator' || user?.role === 'admin') && (
                 <Link
+                  href="/peer-review"
+                  className={`relative px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    pathname === '/peer-review'
+                      ? 'text-white bg-gray-800/60'
+                      : 'text-gray-400 hover:text-violet-400 hover:bg-gray-800/30'
+                  }`}
+                >
+                  Session Reviews
+                  {pathname === '/peer-review' && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full overflow-hidden">
+                      <span className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-cyan-400 to-emerald-500 bg-[length:200%_100%]" style={{ animation: 'gradient-x 2s linear infinite' }} />
+                    </span>
+                  )}
+                </Link>
+              )}
+              {(user?.role === 'educator' || user?.role === 'admin') && (
+                <Link
                   href="/mtss"
                   className={`relative px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     pathname === '/mtss'
@@ -77,6 +93,23 @@ export function Navbar() {
                 >
                   MTSS
                   {pathname === '/mtss' && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full overflow-hidden">
+                      <span className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-cyan-400 to-emerald-500 bg-[length:200%_100%]" style={{ animation: 'gradient-x 2s linear infinite' }} />
+                    </span>
+                  )}
+                </Link>
+              )}
+              {user?.role === 'student' && (
+                <Link
+                  href="/feedback"
+                  className={`relative px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    pathname === '/feedback'
+                      ? 'text-white bg-gray-800/60'
+                      : 'text-gray-400 hover:text-violet-400 hover:bg-gray-800/30'
+                  }`}
+                >
+                  Feedback
+                  {pathname === '/feedback' && (
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full overflow-hidden">
                       <span className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-cyan-400 to-emerald-500 bg-[length:200%_100%]" style={{ animation: 'gradient-x 2s linear infinite' }} />
                     </span>
@@ -166,6 +199,19 @@ export function Navbar() {
               })}
               {(user?.role === 'educator' || user?.role === 'admin') && (
                 <Link
+                  href="/peer-review"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors duration-200 ${
+                    pathname === '/peer-review'
+                      ? 'text-white bg-gray-800/60'
+                      : 'text-gray-400 hover:bg-gray-800/40 hover:text-gray-200'
+                  }`}
+                >
+                  Session Reviews
+                </Link>
+              )}
+              {(user?.role === 'educator' || user?.role === 'admin') && (
+                <Link
                   href="/mtss"
                   onClick={() => setIsMenuOpen(false)}
                   className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors duration-200 ${
@@ -175,6 +221,19 @@ export function Navbar() {
                   }`}
                 >
                   MTSS Dashboard
+                </Link>
+              )}
+              {user?.role === 'student' && (
+                <Link
+                  href="/feedback"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors duration-200 ${
+                    pathname === '/feedback'
+                      ? 'text-white bg-gray-800/60'
+                      : 'text-gray-400 hover:bg-gray-800/40 hover:text-gray-200'
+                  }`}
+                >
+                  Feedback
                 </Link>
               )}
               <button
