@@ -546,7 +546,9 @@ async def answer_probe(
             "content": probe["probe_question"],
             "timestamp": datetime.utcnow().isoformat(),
         })
-        session.probe_count = next_probe_num
+        # Don't count clarifications — students can ask questions freely
+        if not probe.get("is_clarification", False):
+            session.probe_count = next_probe_num
         session.conversation = conversation
         flag_modified(session, "conversation")
         await db.flush()

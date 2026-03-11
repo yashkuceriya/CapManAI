@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     LANGCHAIN_PROJECT: str = os.getenv("LANGCHAIN_PROJECT", "capman-ai")
     LANGCHAIN_ENDPOINT: str = os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
 
+    # Sentry — error tracking (optional)
+    SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
+    SENTRY_ENV: str = os.getenv("SENTRY_ENV", "production")
+
     # Auth
     SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours

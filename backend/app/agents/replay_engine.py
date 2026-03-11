@@ -249,7 +249,7 @@ HISTORICAL_EVENTS = {
                           "When spreads widen and volume dries up, your market order could be executed miles away from fair value. "
                           "Tail risk hedging needs to account for flash crashes, not just Black Swan events.",
         },
-        "learning_objectives": ["liquidity_risk", "tail_risk", "order_flow"],
+        "learning_objectives": ["microstructure", "tail_risk", "order_flow"],
     },
     "oil_negative_2020": {
         "name": "WTI Crude Turns Negative",
@@ -274,7 +274,7 @@ HISTORICAL_EVENTS = {
                           "but a futures trader with a long position faces margin calls and forced liquidation. "
                           "Commodity markets have unique structural risks that equity traders often ignore.",
         },
-        "learning_objectives": ["macro_awareness", "tail_risk", "commodity_dynamics"],
+        "learning_objectives": ["macro_awareness", "tail_risk", "commodity_vol"],
     },
     "fed_pivot_2018": {
         "name": "Fed Pivot — December 2018 Dovish Reversal",
@@ -323,7 +323,7 @@ HISTORICAL_EVENTS = {
                           "When margin calls hit, forced sellers create gaps that destroy options pricing models. "
                           "Correlation between seemingly uncorrelated stocks can spike when a mega-leveraged account unwinds.",
         },
-        "learning_objectives": ["tail_risk", "correlation_rv", "liquidity_risk"],
+        "learning_objectives": ["tail_risk", "correlation_rv", "microstructure"],
     },
     "china_tech_crackdown_2021": {
         "name": "China Tech Crackdown",
@@ -348,7 +348,7 @@ HISTORICAL_EVENTS = {
                           "IV expansion in one region can spill over to correlated sectors globally. "
                           "Long calls on heavily regulated industries need to price in government intervention risk.",
         },
-        "learning_objectives": ["macro_awareness", "tail_risk", "geopolitical_risk"],
+        "learning_objectives": ["macro_awareness", "tail_risk", "geopolitical_alt"],
     },
     "tsla_sp500_2020": {
         "name": "TSLA S&P 500 Inclusion",

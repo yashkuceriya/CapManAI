@@ -14,13 +14,15 @@ class JSONFormatter(logging.Formatter):
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
+            "module": record.module,
             "message": record.getMessage(),
         }
-        if hasattr(record, "request_id"):
-            log_entry["request_id"] = record.request_id
+        request_id = getattr(record, "request_id", None)
+        if request_id and request_id != "-":
+            log_entry["request_id"] = request_id
         if record.exc_info and record.exc_info[0]:
             log_entry["exception"] = self.formatException(record.exc_info)
-        return json.dumps(log_entry)
+        return json.dumps(log_entry, default=str)
 
 
 def setup_logging():
@@ -43,8 +45,9 @@ def setup_logging():
         handler.setFormatter(JSONFormatter())
     else:
         handler.setFormatter(logging.Formatter(
-            "%(asctime)s | %(name)-30s | %(levelname)-7s | %(message)s",
+            "%(asctime)s | %(name)-30s | %(levelname)-7s | [%(request_id)s] %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
+            defaults={"request_id": "-"},
         ))
     root.addHandler(handler)
 

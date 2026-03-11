@@ -1,4 +1,7 @@
 """MTSS Dashboard API routes (Educator view)."""
+import logging
+from pydantic import BaseModel, Field
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
@@ -7,6 +10,8 @@ from app.core.auth import require_educator
 from app.core.database import get_db
 from app.models.database_models import User, UserObjectiveProgress, ScenarioSession, Scenario, EventLog
 from app.services.mtss import MTSSEngine
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mtss", tags=["mtss"])
 mtss_engine = MTSSEngine()
@@ -132,6 +137,8 @@ async def get_student_detail(
                 "status": s.status,
                 "overall_score": s.overall_score,
                 "xp_earned": s.xp_earned,
+                "educator_override_score": s.educator_override_score,
+                "educator_override_note": s.educator_override_note,
                 "created_at": s.created_at.isoformat() if s.created_at else None,
             }
             for s in sessions
@@ -301,4 +308,102 @@ async def get_student_trajectory(
         "score_trajectory": score_trajectory,
         "objective_trends": objective_trends,
         "tier_history": tier_history,
+    }
+
+
+@router.get("/correlation")
+async def get_ai_educator_correlation(
+    current_user: User = Depends(require_educator),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return sessions that have both an AI grade and an educator override.
+
+    Used to build a scatter chart comparing AI vs educator scores and compute
+    correlation metrics.
+    """
+    result = await db.execute(
+        select(ScenarioSession)
+        .where(
+            ScenarioSession.overall_score.isnot(None),
+            ScenarioSession.educator_override_score.isnot(None),
+        )
+        .order_by(desc(ScenarioSession.completed_at))
+        .limit(200)
+    )
+    sessions = result.all()
+
+    points = []
+    for (s,) in sessions:
+        user = await db.get(User, s.user_id)
+        points.append({
+            "session_id": s.id,
+            "user_id": s.user_id,
+            "username": user.username if user else s.user_id,
+            "ai_score": round(s.overall_score, 1),
+            "educator_score": round(s.educator_override_score, 1),
+            "diff": round(s.educator_override_score - s.overall_score, 1),
+            "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+        })
+
+    if len(points) >= 2:
+        ai_scores = [p["ai_score"] for p in points]
+        ed_scores = [p["educator_score"] for p in points]
+        n = len(points)
+        mean_ai = sum(ai_scores) / n
+        mean_ed = sum(ed_scores) / n
+        cov = sum((a - mean_ai) * (e - mean_ed) for a, e in zip(ai_scores, ed_scores)) / n
+        std_ai = (sum((a - mean_ai) ** 2 for a in ai_scores) / n) ** 0.5
+        std_ed = (sum((e - mean_ed) ** 2 for e in ed_scores) / n) ** 0.5
+        r = cov / (std_ai * std_ed) if std_ai and std_ed else 0.0
+        mae = sum(abs(p["diff"]) for p in points) / n
+    else:
+        r = None
+        mae = None
+
+    return {
+        "count": len(points),
+        "correlation_r": round(r, 3) if r is not None else None,
+        "mean_absolute_error": round(mae, 1) if mae is not None else None,
+        "points": points,
+    }
+
+
+class OverrideRequest(BaseModel):
+    score: float = Field(..., ge=0, le=100)
+    note: Optional[str] = Field(None, max_length=500)
+
+
+@router.put("/session/{session_id}/override")
+async def set_educator_override(
+    session_id: str,
+    body: OverrideRequest,
+    current_user: User = Depends(require_educator),
+    db: AsyncSession = Depends(get_db),
+):
+    """Educator sets an override score (and optional note) on a graded session.
+
+    Overwrites the AI grade with the educator's assessment. The original AI
+    score is preserved in `overall_score`; the override is in dedicated columns.
+    """
+    session = await db.get(ScenarioSession, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.educator_override_score = body.score
+    session.educator_override_note = body.note or ""
+    session.educator_override_by = current_user.id
+    await db.flush()
+
+    logger.info(
+        "Educator %s overrode session %s: score=%s",
+        current_user.username,
+        session_id,
+        body.score,
+    )
+
+    return {
+        "session_id": session_id,
+        "educator_override_score": session.educator_override_score,
+        "educator_override_note": session.educator_override_note,
+        "educator_override_by": current_user.id,
     }

@@ -184,6 +184,65 @@ async def register(
     }
 
 
+@router.post("/refresh")
+async def refresh_token(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Issue a fresh access token from an existing (possibly just-expired) token.
+
+    Accepts tokens that expired within the last 7 days — beyond that the user
+    must log in again. This keeps the user seamlessly authenticated without
+    storing refresh tokens.
+    """
+    from jose import jwt as jose_jwt, JWTError as JoseJWTError
+    from app.core.config import settings as cfg
+
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing token")
+    token = auth_header[len("Bearer "):]
+
+    try:
+        payload = jose_jwt.decode(
+            token,
+            cfg.SECRET_KEY,
+            algorithms=["HS256"],
+            options={"verify_exp": False},
+        )
+    except JoseJWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id: str | None = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token claims")
+
+    import time
+    exp = payload.get("exp", 0)
+    now = time.time()
+    max_refresh_window = 7 * 24 * 60 * 60  # 7 days
+    if exp and (now - exp) > max_refresh_window:
+        raise HTTPException(status_code=401, detail="Token too old — please log in again")
+
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    new_token = create_access_token(data={"sub": user.id})
+    return {
+        "access_token": new_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "xp": user.xp,
+            "level": user.level,
+        },
+    }
+
+
 @router.post("/logout")
 async def logout(request: Request):
     """Logout endpoint.

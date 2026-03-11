@@ -1,11 +1,13 @@
 """User, leaderboard, and gamification API routes."""
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
+from sqlalchemy import select, desc, func, cast, Date
 
 from app.core.database import get_db
-from app.core.auth import get_optional_user
+from app.core.config import settings
+from app.core.auth import get_optional_user, get_current_user
 from app.models.database_models import User, UserObjectiveProgress, ScenarioSession
 from app.services.gamification import GamificationEngine
 
@@ -26,8 +28,10 @@ async def get_current_user_profile(
     Uses optional auth — if authenticated, returns that user's profile.
     If not authenticated, falls back to demo-user for development/testing.
     """
-    # Fall back to demo-user if not authenticated
+    # Fall back to demo-user only in DEBUG mode — production returns 401
     if current_user is None:
+        if not settings.DEBUG:
+            raise HTTPException(status_code=401, detail="Authentication required")
         user_id = "demo-user"
         user = await db.get(User, user_id)
         if not user:
@@ -156,6 +160,7 @@ async def get_leaderboard(
                     "level_name": gamification.calculate_level(user.xp)["level_name"],
                     "value": round(row.avg_mastery, 1),
                     "label": "Mastery %",
+                    "tier": user.current_tier,
                 })
     else:
         entries = []
@@ -163,4 +168,91 @@ async def get_leaderboard(
     return {
         "mode": mode,
         "entries": entries,
+    }
+
+
+@router.get("/activity")
+async def get_user_activity(
+    days: int = 14,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return per-day XP earned and session counts for sparkline charts.
+
+    Returns the last `days` calendar days (default 14), filling in zeros
+    for days with no activity.
+    """
+    days = max(1, min(days, 90))
+    since = datetime.utcnow() - timedelta(days=days)
+
+    result = await db.execute(
+        select(
+            func.date(ScenarioSession.completed_at).label("day"),
+            func.count().label("sessions"),
+            func.coalesce(func.sum(ScenarioSession.xp_earned), 0).label("xp"),
+        )
+        .where(
+            ScenarioSession.user_id == current_user.id,
+            ScenarioSession.completed_at.isnot(None),
+            ScenarioSession.completed_at >= since,
+        )
+        .group_by(func.date(ScenarioSession.completed_at))
+        .order_by(func.date(ScenarioSession.completed_at))
+    )
+    rows = result.all()
+
+    by_day = {str(r.day): {"sessions": r.sessions, "xp": int(r.xp)} for r in rows}
+    today = datetime.utcnow().date()
+    timeline = []
+    for i in range(days):
+        d = today - timedelta(days=days - 1 - i)
+        key = str(d)
+        entry = by_day.get(key, {"sessions": 0, "xp": 0})
+        timeline.append({"date": key, **entry})
+
+    return {"days": days, "timeline": timeline}
+
+
+@router.get("/daily-goal")
+async def get_daily_goal(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return today's completion count, daily target, and recommended objectives.
+
+    Provides a "scenarios_today" counter, a simple daily goal (1 scenario),
+    and the weakest objectives the student should focus on next.
+    """
+    from app.services.mtss import MTSSEngine
+
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    result = await db.execute(
+        select(func.count())
+        .where(
+            ScenarioSession.user_id == current_user.id,
+            ScenarioSession.completed_at.isnot(None),
+            func.date(ScenarioSession.completed_at) == today_str,
+        )
+    )
+    completed_today = result.scalar() or 0
+
+    prog_result = await db.execute(
+        select(UserObjectiveProgress).where(UserObjectiveProgress.user_id == current_user.id)
+    )
+    progress = prog_result.scalars().all()
+    progress_dicts = [
+        {"objective_id": p.objective_id, "mastery_score": p.mastery_score}
+        for p in progress
+    ]
+
+    mtss = MTSSEngine()
+    recommended = mtss.get_recommended_objectives(progress_dicts)
+
+    daily_target = 1
+    return {
+        "completed_today": completed_today,
+        "daily_target": daily_target,
+        "goal_met": completed_today >= daily_target,
+        "recommended_objectives": recommended,
+        "streak_days": current_user.streak_days,
     }

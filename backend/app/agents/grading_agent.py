@@ -97,7 +97,9 @@ class ProbingGradingAgent:
 
         prompt = f"""You are a senior CapMan trading instructor conducting a live analysis session.
 You're probing a student's reasoning on a trading scenario — not just checking their answer,
-but testing whether they truly understand WHY they made each decision.
+but testing whether they truly understand WHY they made each decision. You are CONVERSATIONAL:
+when the student asks YOU a question (e.g. "what's an iron condor?", "explain IV rank", "how does that work?"),
+you answer it briefly and helpfully, then return to probing.
 
 === CAPMAN METHODOLOGY CONTEXT ===
 {rag_context}
@@ -109,36 +111,56 @@ but testing whether they truly understand WHY they made each decision.
 {conv_text}
 
 === YOUR TASK ===
-This is probe {probe_number} of {max_probes}. Generate ONE targeted follow-up question that:
+Look at the STUDENT's last message.
 
-1. Probes a SPECIFIC gap or weakness in the student's reasoning
-2. Targets something they claimed but didn't justify, or something they missed entirely
-3. Uses CapMan terminology naturally (e.g., "What's your theta rent on this?" not "What about time decay?")
-4. Feels like a real trading desk conversation — direct, specific, no fluff
-5. Cannot be answered with just "yes" or "no" — requires explanation
+A) If the student is asking YOU a question or requesting clarification (e.g. "what is X?", "explain Y",
+   "how does Z work?", "can you clarify?", "what do you mean by…", "I don't understand…"):
+   - Give a brief, helpful answer in plain language (2-4 sentences). Use analogies if helpful.
+   - Then naturally transition back to your probe so they still have to answer it.
+   - Example: "Great question! An iron condor is [explanation]. Now, back to our scenario — tell me why you'd pick that structure here given the current IV environment."
+   - You MUST start your response with the exact tag: [CLARIFICATION]
 
-Good probe examples:
-- "You chose the 220/215 put spread — what delta are you targeting on the short leg and why?"
-- "Your thesis is bullish but IV rank is at 72. Why aren't you selling premium instead of buying it?"
-- "What happens to your P&L if the stock gaps down 5% overnight? Walk me through the numbers."
-- "You mentioned risk management but didn't size the position. If your portfolio is $100k, how many contracts?"
+B) If the student is answering your probe (not asking you a question):
+   - This is probe {probe_number} of {max_probes}. Generate ONE targeted follow-up question that:
+     1. Probes a SPECIFIC gap or weakness in their reasoning
+     2. Uses CapMan terminology naturally
+     3. Feels like a real trading desk conversation — direct, specific, no fluff
+     4. Cannot be answered with just "yes" or "no"
+   - You MUST start your response with the exact tag: [PROBE]
 
-Respond with ONLY the probe question — no preamble, no explanation. Just the question itself."""
+Good probe examples (for case B):
+- "[PROBE] You chose the 220/215 put spread — what delta are you targeting on the short leg and why?"
+- "[PROBE] Your thesis is bullish but IV rank is at 72. Why aren't you selling premium instead of buying it?"
+
+Good clarification examples (for case A):
+- "[CLARIFICATION] An iron condor is when you sell both a call spread and a put spread on the same stock — you're betting it stays in a range. You collect premium from both sides, and max profit is that total credit. Now, given that IV rank is above 50 here, why would an iron condor be a smart play for this scenario?"
+
+Respond with a single message starting with the appropriate tag."""
 
         response = await self.client.create(
             messages=[{"role": "user", "content": prompt}],
             purpose="probing",
             model=settings.LLM_MODEL_FAST,       # Haiku — 10× cheaper, plenty for probing
-            max_tokens=settings.LLM_MAX_TOKENS_FAST,
+            max_tokens=768,                      # room for conversational answer + re-ask when student asks a question
             temperature=0.6,
         )
 
         probe_text = response.text.strip()
 
+        # Detect if this was a clarification (student asked a question) vs a real probe
+        is_clarification = probe_text.upper().startswith("[CLARIFICATION]")
+        # Strip the tag from the displayed text
+        clean_text = probe_text
+        for tag in ["[CLARIFICATION]", "[PROBE]"]:
+            if clean_text.upper().startswith(tag):
+                clean_text = clean_text[len(tag):].strip()
+                break
+
         return {
-            "probe_question": probe_text,
+            "probe_question": clean_text,
             "probe_number": probe_number,
             "total_probes": max_probes,
+            "is_clarification": is_clarification,
         }
 
     async def grade_session(

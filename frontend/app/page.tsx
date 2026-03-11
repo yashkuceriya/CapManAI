@@ -87,12 +87,27 @@ export default function Dashboard() {
     }
   }, [isAuthenticated, authLoading, router])
 
+  const [dailyGoal, setDailyGoal] = useState<any>(null)
+  const [activity, setActivity] = useState<{ xp: number[]; sessions: number[] }>({ xp: [], sessions: [] })
+
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      users.getDailyGoal().then(setDailyGoal).catch(() => {})
+      users.getActivity(14).then((data: any) => {
+        const timeline = data?.timeline || []
+        setActivity({
+          xp: timeline.map((d: any) => d.xp ?? 0),
+          sessions: timeline.map((d: any) => d.sessions ?? 0),
+        })
+      }).catch(() => {})
+    }
+  }, [isAuthenticated, authLoading])
+
   const xpCount = useCountUp(profile?.xp || 0)
   const sessionsCount = useCountUp(profile?.scenarios_completed || 0, 800)
 
-  // Fake sparkline data for visual richness
-  const xpSparkline = useMemo(() => Array.from({ length: 12 }, (_, i) => Math.floor(20 + Math.random() * 80 + i * 8)), [])
-  const sessionsSparkline = useMemo(() => Array.from({ length: 12 }, (_, i) => Math.floor(1 + Math.random() * 5 + i * 0.8)), [])
+  const xpSparkline = activity.xp
+  const sessionsSparkline = activity.sessions
 
   if (authLoading || loading) {
     return (
@@ -252,6 +267,35 @@ export default function Dashboard() {
             <Activity className="stat-icon-bg text-emerald-400" />
           </div>
         </div>
+
+        {/* ════════════════════════════════════════
+           DAILY GOAL
+           ════════════════════════════════════════ */}
+        {dailyGoal && (
+          <div className={`card flex items-center justify-between gap-4 ${dailyGoal.goal_met ? 'border-emerald-500/20' : 'border-amber-500/20'}`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${dailyGoal.goal_met ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}>
+                <Target className={`w-5 h-5 ${dailyGoal.goal_met ? 'text-emerald-400' : 'text-amber-400'}`} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">
+                  {dailyGoal.goal_met ? 'Daily goal reached!' : `Complete ${dailyGoal.daily_target - dailyGoal.completed_today} more to keep your streak`}
+                </p>
+                <p className="text-[11px] text-gray-500">
+                  {dailyGoal.completed_today}/{dailyGoal.daily_target} today
+                  {dailyGoal.recommended_objectives?.length > 0 && (
+                    <> &middot; Focus: <span className="text-gray-400">{dailyGoal.recommended_objectives.slice(0, 2).map((o: string) => o.replace(/_/g, ' ')).join(', ')}</span></>
+                  )}
+                </p>
+              </div>
+            </div>
+            {!dailyGoal.goal_met && (
+              <Link href="/train">
+                <button className="btn-primary text-xs px-4 py-2 whitespace-nowrap">Train Now</button>
+              </Link>
+            )}
+          </div>
+        )}
 
         {/* ════════════════════════════════════════
            QUICK ACTIONS — Colored accent cards
