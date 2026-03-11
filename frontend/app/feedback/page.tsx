@@ -144,7 +144,7 @@ export default function FeedbackPage() {
                     <p className="text-sm text-gray-400">Reviewed by</p>
                     <p className="font-bold text-white text-lg mt-1">{review.reviewer_username}</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {new Date(review.completed_at).toLocaleDateString()}
+                      {review.completed_at ? new Date(review.completed_at).toLocaleDateString() : '—'}
                     </p>
                   </div>
                   <div className="text-right">

@@ -271,19 +271,19 @@ function SessionCardItem({
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="font-bold text-white text-lg group-hover:text-violet-300 transition-colors">
-            {session.username}
+            {session.username || 'Unknown'}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            {new Date(session.completed_at).toLocaleDateString()}
+            {session.completed_at ? new Date(session.completed_at).toLocaleDateString() : '—'}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span
             className={`text-sm font-bold px-3 py-1 rounded-full ${getDifficultyColor(
-              session.difficulty
+              session.difficulty || ''
             )}`}
           >
-            {session.difficulty}
+            {session.difficulty || 'N/A'}
           </span>
           <div
             className={`flex items-center justify-center w-12 h-12 rounded-lg bg-violet-500/20 border border-violet-500/30 transition-all duration-300 ${
@@ -299,12 +299,12 @@ function SessionCardItem({
 
       <div className="flex gap-2 mb-3 flex-wrap">
         <span className="inline-block px-3 py-1 text-xs rounded-full bg-gray-700/50 text-gray-300 font-medium">
-          {session.market_regime}
+          {session.market_regime || 'Unknown regime'}
         </span>
       </div>
 
       <p className="text-sm text-gray-400 line-clamp-2 mb-5">
-        {session.context_preview}
+        {stripWatermarks(session.context_preview || '')}
       </p>
 
       <button
@@ -354,10 +354,16 @@ export default function PeerReviewPage() {
       setLoadingAvailable(true)
       setError(null)
       const data = await peerReview.listAvailable()
-      setAvailableSessions(data.sessions || [])
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load available sessions'
-      setError(message)
+      const sessions = Array.isArray(data?.sessions) ? data.sessions : []
+      setAvailableSessions(sessions)
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number } }
+      if (axiosErr?.response?.status === 403) {
+        setError('Educator access required. Please log in with an educator account.')
+      } else {
+        const message = err instanceof Error ? err.message : 'Failed to load available sessions'
+        setError(message)
+      }
       console.error('Error fetching available sessions:', err)
     } finally {
       setLoadingAvailable(false)
@@ -448,7 +454,7 @@ export default function PeerReviewPage() {
 
   // Helper functions
   const getDifficultyColor = (difficulty: string) => {
-    const lower = difficulty.toLowerCase()
+    const lower = (difficulty || '').toLowerCase()
     if (lower.includes('beginner') || lower.includes('easy')) return 'bg-emerald-500/20 text-emerald-300'
     if (lower.includes('intermediate') || lower.includes('medium')) return 'bg-amber-500/20 text-amber-300'
     return 'bg-red-500/20 text-red-300'
@@ -616,7 +622,7 @@ export default function PeerReviewPage() {
                 </span>
               )}
               {currentSession.scenario?.difficulty && (
-                <span className={`inline-block px-3 py-1 text-xs rounded-full font-bold ${getDifficultyColor(currentSession.scenario.difficulty)}`}>
+                <span className={`inline-block px-3 py-1 text-xs rounded-full font-bold ${getDifficultyColor(currentSession.scenario.difficulty || '')}`}>
                   {currentSession.scenario.difficulty}
                 </span>
               )}
@@ -634,8 +640,8 @@ export default function PeerReviewPage() {
               <MessageSquare size={22} className="text-violet-400" />
               <h3 className="font-bold text-white text-lg uppercase tracking-wide">Student Response</h3>
             </div>
-            <div className="bg-gray-950/70 rounded-lg p-4 border border-gray-800/50 font-mono text-sm text-gray-300 max-h-64 overflow-y-auto">
-              {currentSession.session.initial_response}
+            <div className="bg-gray-950/70 rounded-lg p-4 border border-gray-800/50 font-mono text-sm text-gray-300 max-h-64 overflow-y-auto whitespace-pre-wrap">
+              {currentSession.session?.initial_response || 'No response recorded'}
             </div>
           </div>
 
@@ -652,14 +658,14 @@ export default function PeerReviewPage() {
                 <div className="absolute inset-0 bg-gradient-to-br from-violet-500/40 to-violet-600/20 rounded-xl blur-lg"></div>
                 <div className="relative bg-violet-500/10 rounded-xl p-4 border border-violet-500/30">
                   <span className="text-4xl font-black text-gradient-purple">
-                    {currentSession.session.overall_score}
+                    {currentSession.session?.overall_score ?? '—'}
                   </span>
                   <span className="text-gray-400 text-sm block">/100</span>
                 </div>
               </div>
             </div>
             <div className="space-y-3" ref={dimensionBarsRef}>
-              {currentSession.session.dimension_scores && Object.entries(currentSession.session.dimension_scores).map(([dimension, score], idx) => (
+              {currentSession.session?.dimension_scores && Object.entries(currentSession.session.dimension_scores).map(([dimension, score], idx) => (
                 <AnimatedScoreBar
                   key={dimension}
                   dimension={dimension}
