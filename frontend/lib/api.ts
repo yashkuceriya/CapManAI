@@ -232,6 +232,18 @@ export const scenarios = {
     const response = await apiClient.get(`/api/scenarios/${sessionId}/reveal`)
     return response.data
   },
+
+  mySessions: async (status?: string, limit: number = 50) => {
+    const response = await apiClient.get('/api/scenarios/my-sessions', {
+      params: { status: status || undefined, limit },
+    })
+    return response.data
+  },
+
+  mySessionDetail: async (sessionId: string) => {
+    const response = await apiClient.get(`/api/scenarios/my-sessions/${sessionId}`)
+    return response.data
+  },
 }
 
 // MTSS API functions

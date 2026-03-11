@@ -45,6 +45,103 @@ mtss_engine = MTSSEngine()
 
 
 # ────────────────────────────────────────────────────────────────
+# Session History
+# ────────────────────────────────────────────────────────────────
+
+@router.get("/my-sessions")
+async def list_my_sessions(
+    status: Optional[str] = Query(None, description="Filter by status: in_progress, probing, graded"),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List the current user's scenario sessions with scenario metadata."""
+    from sqlalchemy import and_
+
+    filters = [ScenarioSession.user_id == current_user.id]
+    if status:
+        filters.append(ScenarioSession.status == status)
+
+    result = await db.execute(
+        select(ScenarioSession)
+        .where(and_(*filters))
+        .order_by(ScenarioSession.created_at.desc())
+        .limit(limit)
+    )
+    sessions = result.scalars().all()
+
+    items = []
+    for sess in sessions:
+        scenario = await db.get(Scenario, sess.scenario_id)
+        items.append({
+            "session_id": sess.id,
+            "status": sess.status,
+            "difficulty": scenario.difficulty if scenario else "",
+            "market_regime": scenario.market_regime if scenario else "",
+            "asset_class": scenario.asset_class if scenario else "",
+            "learning_objectives": scenario.learning_objectives if scenario else [],
+            "is_replay": scenario.is_replay if scenario else False,
+            "replay_event_id": scenario.replay_event_id if scenario else None,
+            "overall_score": sess.overall_score,
+            "dimension_scores": sess.dimension_scores,
+            "strengths": sess.strengths or [],
+            "areas_for_improvement": sess.areas_for_improvement or [],
+            "xp_earned": sess.xp_earned or 0,
+            "curveball_injected": sess.curveball_injected or False,
+            "adaptability_score": sess.adaptability_score,
+            "peer_review_score": sess.peer_review_score,
+            "peer_review_feedback": sess.peer_review_feedback,
+            "created_at": sess.created_at,
+            "completed_at": sess.completed_at,
+        })
+
+    return {"total": len(items), "sessions": items}
+
+
+@router.get("/my-sessions/{session_id}")
+async def get_my_session_detail(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get full detail of a single session owned by the current user."""
+    session = await db.get(ScenarioSession, session_id)
+    if not session or session.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    scenario = await db.get(Scenario, session.scenario_id)
+
+    return {
+        "session_id": session.id,
+        "status": session.status,
+        "scenario": {
+            "context_prompt": scenario.context_prompt if scenario else "",
+            "market_data": scenario.market_data if scenario else {},
+            "difficulty": scenario.difficulty if scenario else "",
+            "market_regime": scenario.market_regime if scenario else "",
+            "learning_objectives": scenario.learning_objectives if scenario else [],
+            "is_replay": scenario.is_replay if scenario else False,
+            "replay_event_id": scenario.replay_event_id if scenario else None,
+        },
+        "initial_response": session.initial_response,
+        "conversation": session.conversation or [],
+        "overall_score": session.overall_score,
+        "dimension_scores": session.dimension_scores,
+        "strengths": session.strengths or [],
+        "areas_for_improvement": session.areas_for_improvement or [],
+        "xp_earned": session.xp_earned or 0,
+        "curveball_injected": session.curveball_injected or False,
+        "curveball_data": session.curveball_data,
+        "curveball_response": session.curveball_response,
+        "adaptability_score": session.adaptability_score,
+        "peer_review_score": session.peer_review_score,
+        "peer_review_feedback": session.peer_review_feedback,
+        "created_at": session.created_at,
+        "completed_at": session.completed_at,
+    }
+
+
+# ────────────────────────────────────────────────────────────────
 # Standard Scenario Flow
 # ────────────────────────────────────────────────────────────────
 
