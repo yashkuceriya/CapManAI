@@ -564,6 +564,12 @@ class MockAdapter(MarketDataAdapter):
         "NFLX": {"price": 628.40, "iv": 35.2},
         "DIS": {"price": 112.30, "iv": 28.7},
         "CRM": {"price": 272.50, "iv": 30.4},
+        # Crypto proxies
+        "COIN": {"price": 225.80, "iv": 72.5},
+        "MARA": {"price": 18.40, "iv": 95.3},
+        "MSTR": {"price": 178.60, "iv": 88.7},
+        "RIOT": {"price": 12.50, "iv": 92.1},
+        "BITO": {"price": 24.30, "iv": 58.4},
     }
 
     async def get_options_chain(self, symbol: str, expiry_range: int = 30) -> dict:

@@ -13,6 +13,7 @@ router = APIRouter(prefix="/api/market", tags=["market"])
 TICKER_TAPE_SYMBOLS = [
     "SPY", "QQQ", "AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "GOOGL",
     "META", "JPM", "V", "AMD", "NFLX", "DIS", "BA", "GS",
+    "COIN", "MARA",
 ]
 
 # Trading flash card facts (static knowledge)

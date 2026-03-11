@@ -43,6 +43,7 @@ MARKET_REGIMES = {
         "vol_of_vol_expansion",         # VVIX spiking
         "cross_asset_contagion",        # bonds + FX + equities all moving
         "liquidity_crisis_simulation",
+        "crypto_vol_regime",            # BTC-driven vol, funding rates, stablecoin flows
     ],
 }
 
@@ -68,6 +69,8 @@ SCENARIO_SYMBOLS = [
     "BA", "CAT", "DE",
     # Communication / Media
     "NFLX", "DIS", "CRM",
+    # Crypto / Digital Assets (Vol Framework §17 — equity proxies with options)
+    "COIN", "MARA", "MSTR", "RIOT", "BITO",
 ]
 
 # Poison phrases embedded as invisible instructions within scenario text
@@ -150,6 +153,11 @@ SYMBOL_NAMES = {
     "NFLX": "Netflix, Inc.",
     "DIS": "The Walt Disney Company",
     "CRM": "Salesforce, Inc.",
+    "COIN": "Coinbase Global, Inc.",
+    "MARA": "Marathon Digital Holdings, Inc.",
+    "MSTR": "Strategy (MicroStrategy)",
+    "RIOT": "Riot Platforms, Inc.",
+    "BITO": "ProShares Bitcoin Strategy ETF",
 }
 
 # Anti-cheat watermark injected into scenario text
