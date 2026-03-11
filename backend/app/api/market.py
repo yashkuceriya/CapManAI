@@ -71,59 +71,57 @@ async def get_market_quotes(symbols: str | None = None):
 
 
 async def _batch_quotes(adapter, symbols: list[str], names: dict) -> list[dict]:
-    """Fetch quotes, trying FMP batch endpoint first, then falling back to sequential."""
+    """Fetch quotes using FMP stable API (sequential, batch restricted on most plans)."""
     import httpx
+    import asyncio
 
-    # FMP batch: /api/v3/quote/AAPL,MSFT,...
-    if hasattr(adapter, "api_key") and adapter.api_key:
+    # Get the FMP API key from adapter or its inner fmp adapter
+    api_key = getattr(adapter, "api_key", None)
+    if not api_key:
+        fmp = getattr(adapter, "fmp", None)
+        api_key = getattr(fmp, "api_key", None) if fmp else None
+
+    # Use FMP stable/quote endpoint (sequential — batch restricted on most plans)
+    if api_key:
+        quotes = []
+        client = getattr(adapter, "client", None) or getattr(getattr(adapter, "fmp", None), "client", None)
+        should_close = False
+        if client is None:
+            client = httpx.AsyncClient(timeout=15.0)
+            should_close = True
         try:
-            batch_url = f"https://financialmodelingprep.com/api/v3/quote/{','.join(symbols)}"
-            client = getattr(adapter, "client", None)
-            if client is None:
-                client = httpx.AsyncClient(timeout=15.0)
-            resp = await client.get(batch_url, params={"apikey": adapter.api_key})
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, list) and data:
-                return [
-                    {
-                        "symbol": q.get("symbol", ""),
-                        "company_name": names.get(q.get("symbol", ""), q.get("symbol", "")),
-                        "price": q.get("price", 0),
-                        "change": q.get("change", 0),
-                        "change_percent": q.get("changesPercentage", 0),
-                    }
-                    for q in data
-                ]
-        except Exception as e:
-            logger.warning("FMP batch quote failed, falling back to sequential: %s", e)
+            async def fetch_one(sym: str) -> dict | None:
+                try:
+                    resp = await client.get(
+                        "https://financialmodelingprep.com/stable/quote",
+                        params={"symbol": sym, "apikey": api_key}
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    if isinstance(data, list) and data:
+                        q = data[0]
+                        return {
+                            "symbol": q.get("symbol", sym),
+                            "company_name": names.get(q.get("symbol", sym), sym),
+                            "price": q.get("price", 0),
+                            "change": q.get("change", 0),
+                            "change_percent": q.get("changePercentage", q.get("changesPercentage", 0)),
+                        }
+                except Exception as e:
+                    logger.debug("FMP quote failed for %s: %s", sym, e)
+                return None
 
-    # Fallback: if adapter is HybridAdapter, reach into its fmp adapter
-    fmp = getattr(adapter, "fmp", None)
-    if fmp and hasattr(fmp, "api_key") and fmp.api_key:
-        try:
-            batch_url = f"https://financialmodelingprep.com/api/v3/quote/{','.join(symbols)}"
-            client = getattr(fmp, "client", None)
-            if client is None:
-                client = httpx.AsyncClient(timeout=15.0)
-            resp = await client.get(batch_url, params={"apikey": fmp.api_key})
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, list) and data:
-                return [
-                    {
-                        "symbol": q.get("symbol", ""),
-                        "company_name": names.get(q.get("symbol", ""), q.get("symbol", "")),
-                        "price": q.get("price", 0),
-                        "change": q.get("change", 0),
-                        "change_percent": q.get("changesPercentage", 0),
-                    }
-                    for q in data
-                ]
+            results = await asyncio.gather(*[fetch_one(s) for s in symbols])
+            quotes = [q for q in results if q is not None]
+            if quotes:
+                return quotes
         except Exception as e:
-            logger.warning("FMP batch (via hybrid) failed, falling back to sequential: %s", e)
+            logger.warning("FMP sequential quotes failed: %s", e)
+        finally:
+            if should_close:
+                await client.aclose()
 
-    # Sequential fallback (mock adapter or no FMP key)
+    # Fallback: use adapter's get_stock_quote (mock adapter)
     quotes = []
     for symbol in symbols:
         try:

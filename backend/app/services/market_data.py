@@ -224,7 +224,7 @@ class FMPAdapter(MarketDataAdapter):
 
     def __init__(self, api_key: str = None):
         self.api_key = api_key or settings.FMP_API_KEY
-        self.base_url = "https://financialmodelingprep.com/api/v3"
+        self.base_url = "https://financialmodelingprep.com/stable"
         self.client = httpx.AsyncClient(
             timeout=15.0,
             limits=httpx.Limits(max_connections=20, max_keepalive_connections=5, keepalive_expiry=30),
@@ -238,7 +238,7 @@ class FMPAdapter(MarketDataAdapter):
         """Real options chain with strikes, premiums, greeks, IV, OI."""
         try:
             resp = await self.client.get(
-                f"{self.base_url}/stock_option_chain",
+                f"{self.base_url}/options-chain",
                 params={"symbol": symbol, "apikey": self.api_key}
             )
             resp.raise_for_status()
@@ -311,8 +311,8 @@ class FMPAdapter(MarketDataAdapter):
         """Current price, change, volume, market cap."""
         try:
             resp = await self.client.get(
-                f"{self.base_url}/quote/{symbol}",
-                params={"apikey": self.api_key}
+                f"{self.base_url}/quote",
+                params={"symbol": symbol, "apikey": self.api_key}
             )
             resp.raise_for_status()
             data = resp.json()
@@ -322,7 +322,7 @@ class FMPAdapter(MarketDataAdapter):
                     "symbol": q.get("symbol", symbol),
                     "price": q.get("price", 0),
                     "change": q.get("change", 0),
-                    "change_percent": q.get("changesPercentage", 0),
+                    "change_percent": q.get("changePercentage", q.get("changesPercentage", 0)),
                     "volume": q.get("volume", 0),
                     "market_cap": q.get("marketCap", 0),
                     "day_high": q.get("dayHigh", 0),
@@ -339,15 +339,16 @@ class FMPAdapter(MarketDataAdapter):
     # These are not used directly; HybridAdapter routes historical to Yahoo.
 
     async def get_historical_prices(self, symbol: str, days: int = 60) -> list:
-        """FMP free tier only returns ~1 day. Use HybridAdapter instead."""
+        """FMP historical daily prices."""
         try:
             resp = await self.client.get(
-                f"{self.base_url}/historical-price-full/{symbol}",
-                params={"apikey": self.api_key, "timeseries": days}
+                f"{self.base_url}/historical-price-eod/full",
+                params={"symbol": symbol, "apikey": self.api_key, "timeseries": days}
             )
             resp.raise_for_status()
             data = resp.json()
-            historical = data.get("historical", []) or []
+            # New stable API returns list directly, not nested under "historical"
+            historical = data if isinstance(data, list) else data.get("historical", []) or []
             out = []
             for h in historical[:days]:
                 if not isinstance(h, dict):
@@ -395,12 +396,13 @@ class FMPAdapter(MarketDataAdapter):
     async def get_historical_prices_range(self, symbol: str, start_date: str, end_date: str) -> list:
         try:
             resp = await self.client.get(
-                f"{self.base_url}/historical-price-full/{symbol}",
-                params={"from": start_date, "to": end_date, "apikey": self.api_key}
+                f"{self.base_url}/historical-price-eod/full",
+                params={"symbol": symbol, "from": start_date, "to": end_date, "apikey": self.api_key}
             )
             resp.raise_for_status()
             data = resp.json()
-            historical = data.get("historical", []) or []
+            # New stable API returns list directly
+            historical = data if isinstance(data, list) else data.get("historical", []) or []
             out = []
             for h in historical:
                 if not isinstance(h, dict):
