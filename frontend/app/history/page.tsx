@@ -19,7 +19,7 @@ interface SessionSummary {
   is_replay: boolean
   replay_event_id: string | null
   overall_score: number | null
-  dimension_scores: Record<string, number> | null
+  dimension_scores: Array<{ dimension: string; score: number; feedback: string }> | Record<string, number> | null
   strengths: string[]
   areas_for_improvement: string[]
   xp_earned: number
@@ -46,7 +46,7 @@ interface SessionDetail {
   initial_response: string
   conversation: Array<{ role: string; content: string }>
   overall_score: number | null
-  dimension_scores: Record<string, number> | null
+  dimension_scores: Array<{ dimension: string; score: number; feedback: string }> | Record<string, number> | null
   strengths: string[]
   areas_for_improvement: string[]
   xp_earned: number
@@ -250,16 +250,21 @@ export default function HistoryPage() {
           )}
 
           {/* Dimension Scores */}
-          {selectedDetail.dimension_scores && Object.keys(selectedDetail.dimension_scores).length > 0 && (
+          {selectedDetail.dimension_scores && (Array.isArray(selectedDetail.dimension_scores) ? selectedDetail.dimension_scores.length > 0 : Object.keys(selectedDetail.dimension_scores).length > 0) && (
             <div className="card-glow border-2 border-violet-500/30 mb-6">
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-violet-500/20">
                 <TrendingUp size={18} className="text-violet-400" />
                 <h3 className="font-bold text-white uppercase tracking-wide text-sm">Dimension Scores</h3>
               </div>
               <div className="space-y-3">
-                {Object.entries(selectedDetail.dimension_scores).map(([dim, score]) => (
-                  <ScoreBar key={dim} label={dim} score={score as number} />
-                ))}
+                {Array.isArray(selectedDetail.dimension_scores)
+                  ? selectedDetail.dimension_scores.map((d) => (
+                      <ScoreBar key={d.dimension} label={d.dimension} score={d.score} />
+                    ))
+                  : Object.entries(selectedDetail.dimension_scores).map(([dim, score]) => (
+                      <ScoreBar key={dim} label={dim} score={score as number} />
+                    ))
+                }
               </div>
             </div>
           )}
