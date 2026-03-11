@@ -134,7 +134,7 @@ interface ReviewSession {
     initial_response: string
     conversation: Array<{ role: string; content: string }>
     overall_score: number
-    dimension_scores: { [key: string]: number }
+    dimension_scores: Array<{ dimension: string; score: number; feedback: string }> | Record<string, number>
     strengths: string[]
     areas_for_improvement: string[]
   }
@@ -665,15 +665,27 @@ export default function PeerReviewPage() {
               </div>
             </div>
             <div className="space-y-3" ref={dimensionBarsRef}>
-              {currentSession.session?.dimension_scores && Object.entries(currentSession.session.dimension_scores).map(([dimension, score], idx) => (
-                <AnimatedScoreBar
-                  key={dimension}
-                  dimension={dimension}
-                  score={score as number}
-                  index={idx}
-                  getScoreBarColor={getScoreBarColor}
-                />
-              ))}
+              {currentSession.session?.dimension_scores && (
+                Array.isArray(currentSession.session.dimension_scores)
+                  ? currentSession.session.dimension_scores.map((d, idx) => (
+                      <AnimatedScoreBar
+                        key={d.dimension}
+                        dimension={d.dimension.replace(/_/g, ' ')}
+                        score={d.score}
+                        index={idx}
+                        getScoreBarColor={getScoreBarColor}
+                      />
+                    ))
+                  : Object.entries(currentSession.session.dimension_scores).map(([dimension, score], idx) => (
+                      <AnimatedScoreBar
+                        key={dimension}
+                        dimension={dimension.replace(/_/g, ' ')}
+                        score={score as number}
+                        index={idx}
+                        getScoreBarColor={getScoreBarColor}
+                      />
+                    ))
+              )}
             </div>
           </div>
 
