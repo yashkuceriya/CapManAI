@@ -10,6 +10,7 @@ import { useState } from 'react'
 const navLinks = [
   { href: '/train', label: 'Train', hoverColor: 'hover:text-emerald-400' },
   { href: '/replay', label: 'Replay', hoverColor: 'hover:text-amber-400' },
+  { href: '/history', label: 'History', hoverColor: 'hover:text-violet-400' },
   { href: '/leaderboard', label: 'Leaderboard', hoverColor: 'hover:text-purple-400' },
   { href: '/h2h', label: 'H2H', hoverColor: 'hover:text-cyan-400' },
 ]
