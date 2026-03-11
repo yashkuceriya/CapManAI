@@ -588,33 +588,6 @@ async def answer_probe(
         }
 
 
-@router.post("/{session_id}/skip-to-grading")
-async def skip_to_grading(
-    session_id: str,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Student opts to skip remaining probes and proceed to grading.
-
-    Only allowed after at least 1 real probe has been answered.
-    """
-    session = await db.get(ScenarioSession, session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not your session")
-    if (session.probe_count or 0) < 1:
-        raise HTTPException(status_code=400, detail="Answer at least one probe before skipping")
-
-    return {
-        "session_id": session_id,
-        "status": "ready_for_grading",
-        "ready_for_grading": True,
-        "curveball_eligible": not session.curveball_injected,
-        "curveball_active": session.curveball_injected,
-    }
-
-
 @router.post("/{session_id}/grade")
 async def grade_session(
     session_id: str,

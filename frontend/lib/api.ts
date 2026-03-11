@@ -186,14 +186,6 @@ export const scenarios = {
     return response.data
   },
 
-  skipToGrading: async (sessionId: string) => {
-    const response = await apiClient.post(
-      `/api/scenarios/${sessionId}/skip-to-grading`,
-      {}
-    )
-    return response.data
-  },
-
   gradeSession: async (sessionId: string) => {
     const response = await apiClient.post(
       `/api/scenarios/${sessionId}/grade`,

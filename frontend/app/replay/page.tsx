@@ -276,15 +276,6 @@ export default function ReplayPage() {
     }
   }
 
-  const handleSkipToGrading = async () => {
-    if (!sessionId) return
-    try {
-      await scenarios.skipToGrading(sessionId)
-      await doGrade()
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Cannot skip yet.')
-    }
-  }
 
   const handleInjectCurveball = async () => {
     if (!sessionId) return
@@ -645,27 +636,14 @@ export default function ReplayPage() {
             currentQuestion={probeMessages[probeMessages.length - 1]?.role === 'ai' ? probeMessages[probeMessages.length - 1].content : ''}
           />
 
-          {state === 'probing' && (
-            <div className="flex gap-3">
-              {curveballEligible && (
-                <button
-                  onClick={handleInjectCurveball}
-                  className="flex-1 py-3.5 px-4 rounded-2xl border-2 border-dashed border-amber-500/30 hover:border-amber-500/60 bg-amber-500/[0.03] hover:bg-amber-500/[0.06] text-amber-300 font-semibold flex items-center justify-center gap-2 transition-all duration-300"
-                >
-                  <AlertTriangle className="w-5 h-5" />
-                  Inject Curveball
-                </button>
-              )}
-              {probeMessages.filter(m => m.role === 'student').length >= 1 && (
-                <button
-                  onClick={handleSkipToGrading}
-                  className="flex-1 py-3.5 px-4 rounded-2xl border-2 border-dashed border-emerald-500/30 hover:border-emerald-500/60 bg-emerald-500/[0.03] hover:bg-emerald-500/[0.06] text-emerald-300 font-semibold flex items-center justify-center gap-2 transition-all duration-300"
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  Ready for Grading
-                </button>
-              )}
-            </div>
+          {state === 'probing' && curveballEligible && (
+            <button
+              onClick={handleInjectCurveball}
+              className="w-full py-3.5 px-4 rounded-2xl border-2 border-dashed border-amber-500/30 hover:border-amber-500/60 bg-amber-500/[0.03] hover:bg-amber-500/[0.06] text-amber-300 font-semibold flex items-center justify-center gap-2 transition-all duration-300"
+            >
+              <AlertTriangle className="w-5 h-5" />
+              Inject Curveball (Optional — tests adaptability)
+            </button>
           )}
         </div>
       )}
