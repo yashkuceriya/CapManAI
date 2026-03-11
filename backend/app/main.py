@@ -35,17 +35,19 @@ except ImportError:
 async def lifespan(app: FastAPI):
     """Initialize database and RAG on startup."""
     # ── Sentry error tracking (optional — set SENTRY_DSN env var) ──
-    _sentry_dsn = os.getenv("SENTRY_DSN", "")
-    if _sentry_dsn:
+    if settings.SENTRY_DSN:
         try:
             import sentry_sdk
+            from sentry_sdk.integrations.fastapi import FastApiIntegration
+            from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
             sentry_sdk.init(
-                dsn=_sentry_dsn,
-                environment=os.getenv("SENTRY_ENV", "production"),
+                dsn=settings.SENTRY_DSN,
+                environment=settings.SENTRY_ENV,
                 traces_sample_rate=0.1,
                 send_default_pii=False,
+                integrations=[FastApiIntegration(), SqlalchemyIntegration()],
             )
-            logger.info("Sentry error tracking enabled")
+            logger.info("Sentry error tracking enabled (env=%s)", settings.SENTRY_ENV)
         except ImportError:
             logger.warning("SENTRY_DSN set but sentry-sdk not installed — pip install sentry-sdk[fastapi]")
 

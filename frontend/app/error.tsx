@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
 
-export default function Error({
+export default function GlobalError({
   error,
   reset,
 }: {
@@ -10,52 +11,34 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('[CapMan] Unhandled error:', error)
+    console.error('[CapMan] Uncaught error:', error)
   }, [error])
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0a0f1a' }}>
-      <div
-        className="max-w-md w-full rounded-2xl p-8 text-center"
-        style={{
-          background: 'rgba(30, 41, 59, 0.8)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
-        }}
-      >
-        <div className="text-5xl mb-4">⚠️</div>
+    <div className="min-h-[60vh] flex items-center justify-center px-4">
+      <div className="card max-w-md w-full text-center py-12 px-8 animate-fade-in">
+        <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-5">
+          <AlertTriangle className="w-7 h-7 text-red-400" />
+        </div>
         <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
-        <p className="text-gray-400 text-sm mb-6">
-          An unexpected error occurred. This has been logged and we&apos;ll look into it.
+        <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+          An unexpected error occurred. You can try again or go back to the dashboard.
         </p>
-        {error.digest && (
-          <p className="text-gray-600 text-xs mb-4 font-mono">
-            Error ID: {error.digest}
-          </p>
-        )}
-        <div className="flex gap-3 justify-center">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={reset}
-            className="px-6 py-2.5 rounded-lg text-sm font-bold transition-all"
-            style={{
-              background: 'rgba(139, 92, 246, 0.2)',
-              color: '#a78bfa',
-              border: '1px solid rgba(139, 92, 246, 0.4)',
-            }}
+            className="btn-primary flex items-center justify-center gap-2"
           >
-            Try Again
+            <RefreshCw className="w-4 h-4" />
+            Try again
           </button>
-          <a
-            href="/"
-            className="px-6 py-2.5 rounded-lg text-sm font-bold transition-all"
-            style={{
-              background: 'rgba(100, 116, 139, 0.2)',
-              color: '#94a3b8',
-              border: '1px solid rgba(100, 116, 139, 0.3)',
-            }}
-          >
-            Go Home
+          <a href="/" className="btn-secondary text-center">
+            Back to Dashboard
           </a>
         </div>
+        {error.digest && (
+          <p className="text-[10px] text-gray-600 mt-6 font-mono">Error ID: {error.digest}</p>
+        )}
       </div>
     </div>
   )

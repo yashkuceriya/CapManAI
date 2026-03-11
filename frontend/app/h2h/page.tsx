@@ -436,9 +436,13 @@ export default function H2HPage() {
             </div>
 
             {openMatches.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">
-                <Users className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p className="text-lg">No open matches. Create one!</p>
+              <div className="text-center py-12 text-gray-400 state-enter">
+                <div className="w-16 h-16 rounded-full bg-gray-800/60 flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 opacity-40" />
+                </div>
+                <p className="text-lg font-semibold text-white mb-1">No Open Challenges</p>
+                <p className="text-sm mb-5">Be the first to throw down the gauntlet</p>
+                <button onClick={handleCreateChallenge} className="btn-primary text-sm px-6 py-2">Create a Challenge</button>
               </div>
             ) : (
               <div className="space-y-3 stagger-children">

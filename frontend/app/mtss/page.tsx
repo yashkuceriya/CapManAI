@@ -4,8 +4,79 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { mtss } from '@/lib/api'
-import { AlertCircle, Users, X, Shield } from 'lucide-react'
+import { AlertCircle, Users, X, Shield, Edit3, Check, ScatterChart } from 'lucide-react'
 import { MTSSHeatmap } from '@/components/MTSSHeatmap'
+
+function SessionRow({ session: s, onOverrideApplied }: { session: any; onOverrideApplied: (data: any) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [score, setScore] = useState(s.educator_override_score?.toString() || '')
+  const [note, setNote] = useState(s.educator_override_note || '')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    const numScore = parseFloat(score)
+    if (isNaN(numScore) || numScore < 0 || numScore > 100) return
+    setSaving(true)
+    try {
+      const result = await mtss.setOverride(s.id, numScore, note)
+      onOverrideApplied(result)
+      setEditing(false)
+    } catch (err) {
+      console.error('Override failed:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="px-3 py-2 rounded bg-gray-800 text-xs">
+      <div className="flex items-center justify-between">
+        <span className="text-gray-400">{s.created_at?.substring(0, 10)}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-gray-500">AI: <span className={`font-bold ${(s.overall_score || 0) >= 80 ? 'text-emerald-400' : (s.overall_score || 0) >= 60 ? 'text-amber-400' : 'text-red-400'}`}>{s.overall_score?.toFixed(0) || 'N/A'}</span></span>
+          {s.educator_override_score != null && !editing && (
+            <span className="text-blue-300 font-bold">Override: {s.educator_override_score.toFixed(0)}</span>
+          )}
+          <span className="text-gray-500">+{s.xp_earned || 0} XP</span>
+          <button onClick={() => setEditing(!editing)} className="p-1 hover:bg-gray-700 rounded transition-colors" title="Override grade">
+            <Edit3 className="w-3.5 h-3.5 text-gray-500 hover:text-blue-400" />
+          </button>
+        </div>
+      </div>
+      {s.educator_override_note && !editing && (
+        <p className="text-[11px] text-blue-300/70 mt-1 italic">{s.educator_override_note}</p>
+      )}
+      {editing && (
+        <div className="mt-2 flex flex-col sm:flex-row gap-2">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={score}
+            onChange={(e) => setScore(e.target.value)}
+            placeholder="Score 0-100"
+            className="w-24 px-2 py-1 rounded bg-gray-900 border border-gray-700 text-white text-xs focus:border-blue-500 outline-none"
+          />
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Note (optional)"
+            className="flex-1 px-2 py-1 rounded bg-gray-900 border border-gray-700 text-white text-xs focus:border-blue-500 outline-none"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-1 px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium disabled:opacity-50"
+          >
+            <Check className="w-3 h-3" />
+            {saving ? 'Saving...' : 'Apply'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function MTSSPage() {
   const router = useRouter()
@@ -14,6 +85,7 @@ export default function MTSSPage() {
   const [heatmapData, setHeatmapData] = useState<any[]>([])
   const [alerts, setAlerts] = useState<any[]>([])
   const [selectedStudent, setSelectedStudent] = useState<any>(null)
+  const [correlation, setCorrelation] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -31,14 +103,16 @@ export default function MTSSPage() {
     if (user?.role === 'student') return
     const fetchData = async () => {
       try {
-        const [overviewData, objectivesData, alertsData] = await Promise.all([
+        const [overviewData, objectivesData, alertsData, corrData] = await Promise.all([
           mtss.getOverview(),
           mtss.getObjectives(),
           mtss.getAlerts(),
+          mtss.getCorrelation().catch(() => null),
         ])
         setOverview(overviewData)
         setHeatmapData(objectivesData.heatmap || [])
         setAlerts(alertsData.alerts || [])
+        if (corrData) setCorrelation(corrData)
       } catch (err: any) {
         if (err?.response?.status === 401) return
         setError('Failed to load MTSS data.')
@@ -176,6 +250,62 @@ export default function MTSSPage() {
         </div>
       )}
 
+      {/* AI vs Educator Correlation */}
+      {correlation && correlation.count > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+            <ScatterChart className="w-5 h-5 text-purple-400" />
+            AI vs Educator Score Correlation
+          </h2>
+          <div className="card">
+            <div className="flex flex-wrap gap-4 mb-4 text-xs">
+              <div className="bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
+                <span className="text-gray-400">Sessions compared: </span>
+                <span className="text-white font-bold">{correlation.count}</span>
+              </div>
+              {correlation.correlation_r != null && (
+                <div className="bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
+                  <span className="text-gray-400">Correlation (r): </span>
+                  <span className={`font-bold ${Math.abs(correlation.correlation_r) >= 0.7 ? 'text-emerald-400' : Math.abs(correlation.correlation_r) >= 0.4 ? 'text-amber-400' : 'text-red-400'}`}>
+                    {correlation.correlation_r}
+                  </span>
+                </div>
+              )}
+              {correlation.mean_absolute_error != null && (
+                <div className="bg-gray-800 rounded-lg px-3 py-2 border border-gray-700">
+                  <span className="text-gray-400">MAE: </span>
+                  <span className="text-white font-bold">{correlation.mean_absolute_error} pts</span>
+                </div>
+              )}
+            </div>
+            <div className="relative w-full" style={{ paddingBottom: '100%', maxWidth: 400, maxHeight: 400 }}>
+              <svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full">
+                <line x1="10" y1="110" x2="110" y2="110" stroke="#374151" strokeWidth="0.5" />
+                <line x1="10" y1="110" x2="10" y2="10" stroke="#374151" strokeWidth="0.5" />
+                <line x1="10" y1="110" x2="110" y2="10" stroke="#374151" strokeWidth="0.3" strokeDasharray="2,2" />
+                <text x="60" y="119" textAnchor="middle" className="fill-gray-500" fontSize="4">AI Score</text>
+                <text x="4" y="60" textAnchor="middle" className="fill-gray-500" fontSize="4" transform="rotate(-90,4,60)">Educator</text>
+                {correlation.points.map((p: any, i: number) => {
+                  const x = 10 + (p.ai_score / 100) * 100
+                  const y = 110 - (p.educator_score / 100) * 100
+                  return (
+                    <circle
+                      key={i}
+                      cx={x}
+                      cy={y}
+                      r="1.5"
+                      className="fill-purple-400 opacity-70 hover:opacity-100"
+                    >
+                      <title>{p.username}: AI {p.ai_score} / Educator {p.educator_score}</title>
+                    </circle>
+                  )
+                })}
+              </svg>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Student Detail Modal */}
       {selectedStudent && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto">
@@ -266,15 +396,22 @@ export default function MTSSPage() {
             {selectedStudent.recent_sessions?.length > 0 && (
               <div>
                 <h4 className="font-semibold text-white mb-2 text-sm">Recent Sessions</h4>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {selectedStudent.recent_sessions.slice(0, 5).map((s: any) => (
-                    <div key={s.id} className="flex items-center justify-between px-2 py-1.5 rounded bg-gray-800 text-xs">
-                      <span className="text-gray-400">{s.created_at?.substring(0, 10)}</span>
-                      <span className={`font-bold ${(s.overall_score || 0) >= 80 ? 'text-emerald-400' : (s.overall_score || 0) >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
-                        {s.overall_score?.toFixed(0) || 'N/A'}
-                      </span>
-                      <span className="text-gray-500">+{s.xp_earned || 0} XP</span>
-                    </div>
+                    <SessionRow
+                      key={s.id}
+                      session={s}
+                      onOverrideApplied={(updated) => {
+                        setSelectedStudent((prev: any) => ({
+                          ...prev,
+                          recent_sessions: prev.recent_sessions.map((sess: any) =>
+                            sess.id === updated.session_id
+                              ? { ...sess, educator_override_score: updated.educator_override_score, educator_override_note: updated.educator_override_note }
+                              : sess
+                          ),
+                        }))
+                      }}
+                    />
                   ))}
                 </div>
               </div>

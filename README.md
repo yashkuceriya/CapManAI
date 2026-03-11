@@ -11,10 +11,10 @@ All scripts use the project venv: `./venv/bin/python` and `./venv/bin/uvicorn`. 
 ```bash
 cd backend
 cp .env.example .env   # ← Add your API keys (see below)
-./run_server.sh        # Creates venv if needed, installs deps, starts server on :8000
+./run.sh               # Creates venv if needed, installs deps, starts server on :8000
 ```
 
-Requires **Python 3.10, 3.11, or 3.12** (3.14 is not yet supported by some dependencies). If you have multiple versions: `PYTHON=python3.12 ./run_server.sh`
+Requires **Python 3.10, 3.11, or 3.12** (3.14 is not yet supported by some dependencies). If you have multiple versions install the right Python first, then `./run.sh`.
 
 **Option B — Manual:**
 
@@ -37,7 +37,7 @@ Open http://localhost:8000/docs for the API explorer.
 1. **Python 3.10–3.13** (e.g. `python3.12 --version`).
 2. **Setup:** `cd backend` then `cp .env.example .env`
 3. **Edit `.env`** — set at least `ANTHROPIC_API_KEY=sk-ant-...` and `SECRET_KEY=<random string>`
-4. **Start:** `./run_server.sh`
+4. **Start:** `./run.sh`
 5. **Verify:** http://localhost:8000/health and http://localhost:8000/docs
 
 Optional: `FMP_API_KEY` (real market data), `LANGCHAIN_API_KEY` (cost tracing).
@@ -135,23 +135,14 @@ backend/
 
 ## Testing
 
-**One command (offline + E2E; starts a temporary server for E2E):**
+**Run tests:**
 
 ```bash
 cd backend
-./test_everything.sh   # Ensures venv, runs 148 offline checks, then E2E against a short-lived server
-```
-
-Use Python 3.10–3.12 if your default is 3.14: `PYTHON=python3.12 ./test_everything.sh`
-
-**Step by step:**
-
-```bash
-cd backend
-./ensure_venv.sh       # Create venv and install deps (only needed once)
-./venv/bin/python test_offline.py              # Offline only (148 checks)
-./run_server.sh        # In one terminal: start server
-./venv/bin/python run_all_tests.py --e2e      # In another: run E2E
+./venv/bin/pytest -v                           # Unit tests (pytest)
+./venv/bin/python test_offline.py              # Offline checks (148)
+./run.sh                                       # In one terminal: start server
+./venv/bin/python run_all_tests.py --e2e       # In another: run E2E
 ```
 
 E2E exercises health, scenario generate → respond → probe → grade, replay flow, curveball flow, MTSS endpoints, and leaderboard. For scenario/grading steps you need `ANTHROPIC_API_KEY` in `.env`.
