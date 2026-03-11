@@ -412,7 +412,14 @@ export default function TrainPage() {
       setCurveballEligible(data.curveball_eligible ?? false)
       if (data.probe?.probe_question) {
         setProbeMessages(prev => [...prev, { role: 'ai', content: data.probe.probe_question }])
-        setState('probing')
+        // If LLM is satisfied or backend says ready, show the affirmation then grade
+        if (data.ready_for_grading) {
+          // Brief pause so student sees the affirmation message
+          setTimeout(() => doGrade(), 1500)
+          setState('probing')
+        } else {
+          setState('probing')
+        }
       } else {
         await doGrade()
       }
@@ -421,6 +428,17 @@ export default function TrainPage() {
       console.error('[CapMan] Answer probe error:', { status: err?.response?.status, detail, err })
       setError(detail)
       setState('probing')
+    }
+  }
+
+  const handleSkipToGrading = async () => {
+    if (!sessionId) return
+    try {
+      await scenarios.skipToGrading(sessionId)
+      await doGrade()
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || 'Cannot skip yet.'
+      setError(detail)
     }
   }
 
@@ -826,12 +844,19 @@ export default function TrainPage() {
         <div className="space-y-6 state-enter">
           <details className="card cursor-pointer group">
             <summary className="flex items-center justify-between text-white font-semibold text-sm">
-              <span>Market Context (click to expand)</span>
+              <span>Mission Brief (click to expand)</span>
               <ChevronRight className="w-4 h-4 text-gray-500 group-open:rotate-90 transition-transform" />
             </summary>
-            <p className="text-gray-400 text-sm mt-3 whitespace-pre-line leading-relaxed">
-              {stripWatermarks(scenarioData.context_prompt).substring(0, 600)}...
-            </p>
+            <div className="mt-3">
+              <ScenarioCard
+                contextPrompt={scenarioData.context_prompt}
+                marketData={scenarioData.market_data}
+                difficulty={scenarioData.difficulty}
+                objectives={scenarioData.learning_objectives}
+                marketRegime={scenarioData.market_regime}
+                companyName={scenarioData.company_name}
+              />
+            </div>
           </details>
 
           {curveballData && (
@@ -860,14 +885,27 @@ export default function TrainPage() {
             currentQuestion={probeMessages[probeMessages.length - 1]?.role === 'ai' ? probeMessages[probeMessages.length - 1].content : ''}
           />
 
-          {state === 'probing' && curveballEligible && (
-            <button
-              onClick={handleInjectCurveball}
-              className="w-full py-3.5 px-4 rounded-2xl border-2 border-dashed border-amber-500/30 hover:border-amber-500/60 bg-amber-500/[0.03] hover:bg-amber-500/[0.06] text-amber-300 font-semibold flex items-center justify-center gap-2 transition-all duration-300"
-            >
-              <AlertTriangle className="w-5 h-5" />
-              Inject Curveball (Optional — tests adaptability)
-            </button>
+          {state === 'probing' && (
+            <div className="flex gap-3">
+              {curveballEligible && (
+                <button
+                  onClick={handleInjectCurveball}
+                  className="flex-1 py-3.5 px-4 rounded-2xl border-2 border-dashed border-amber-500/30 hover:border-amber-500/60 bg-amber-500/[0.03] hover:bg-amber-500/[0.06] text-amber-300 font-semibold flex items-center justify-center gap-2 transition-all duration-300"
+                >
+                  <AlertTriangle className="w-5 h-5" />
+                  Inject Curveball
+                </button>
+              )}
+              {probeMessages.filter(m => m.role === 'student').length >= 1 && (
+                <button
+                  onClick={handleSkipToGrading}
+                  className="flex-1 py-3.5 px-4 rounded-2xl border-2 border-dashed border-emerald-500/30 hover:border-emerald-500/60 bg-emerald-500/[0.03] hover:bg-emerald-500/[0.06] text-emerald-300 font-semibold flex items-center justify-center gap-2 transition-all duration-300"
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  Ready for Grading
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

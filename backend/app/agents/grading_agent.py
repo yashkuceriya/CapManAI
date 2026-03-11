@@ -84,9 +84,18 @@ class ProbingGradingAgent:
         probe_number: int = 1,
         max_probes: int = 3,
     ) -> Optional[dict]:
-        """Generate a targeted follow-up question based on the student's response."""
+        """Generate a targeted follow-up question based on the student's response.
+
+        Returns None when probing should end (max reached, mastery shown, or message cap hit).
+        Returns dict with is_clarification=True for student questions (doesn't count as a probe).
+        """
 
         if probe_number > max_probes:
+            return None
+
+        # Safety cap: if conversation is very long (e.g. many clarifications), wrap up
+        student_messages = [m for m in conversation_history if m.get("role") == "student"]
+        if len(student_messages) > max_probes + 5:
             return None
 
         # Get relevant CapMan context for probing
@@ -111,16 +120,16 @@ you answer it briefly and helpfully, then return to probing.
 {conv_text}
 
 === YOUR TASK ===
-Look at the STUDENT's last message.
+Look at the STUDENT's last message. Choose ONE of the three cases:
 
-A) If the student is asking YOU a question or requesting clarification (e.g. "what is X?", "explain Y",
+A) CLARIFICATION — the student is asking YOU a question (e.g. "what is X?", "explain Y",
    "how does Z work?", "can you clarify?", "what do you mean by…", "I don't understand…"):
    - Give a brief, helpful answer in plain language (2-4 sentences). Use analogies if helpful.
    - Then naturally transition back to your probe so they still have to answer it.
    - Example: "Great question! An iron condor is [explanation]. Now, back to our scenario — tell me why you'd pick that structure here given the current IV environment."
    - You MUST start your response with the exact tag: [CLARIFICATION]
 
-B) If the student is answering your probe (not asking you a question):
+B) PROBE — the student answered your probe but you see gaps to explore further:
    - This is probe {probe_number} of {max_probes}. Generate ONE targeted follow-up question that:
      1. Probes a SPECIFIC gap or weakness in their reasoning
      2. Uses CapMan terminology naturally
@@ -128,12 +137,21 @@ B) If the student is answering your probe (not asking you a question):
      4. Cannot be answered with just "yes" or "no"
    - You MUST start your response with the exact tag: [PROBE]
 
-Good probe examples (for case B):
+C) SATISFIED — the student has demonstrated STRONG understanding in their answer:
+   - They covered the key reasoning, used proper terminology, and showed genuine comprehension
+   - You can acknowledge their strong answer with a brief 1-sentence affirmation
+   - You MUST start your response with the exact tag: [SATISFIED]
+   - Only use this when the student truly nailed it — if there are gaps, use [PROBE] instead
+
+Good probe examples:
 - "[PROBE] You chose the 220/215 put spread — what delta are you targeting on the short leg and why?"
 - "[PROBE] Your thesis is bullish but IV rank is at 72. Why aren't you selling premium instead of buying it?"
 
-Good clarification examples (for case A):
+Good clarification examples:
 - "[CLARIFICATION] An iron condor is when you sell both a call spread and a put spread on the same stock — you're betting it stays in a range. You collect premium from both sides, and max profit is that total credit. Now, given that IV rank is above 50 here, why would an iron condor be a smart play for this scenario?"
+
+Good satisfied example:
+- "[SATISFIED] Solid reasoning — you connected the IV regime to your structure choice and sized the position correctly."
 
 Respond with a single message starting with the appropriate tag."""
 
@@ -147,20 +165,34 @@ Respond with a single message starting with the appropriate tag."""
 
         probe_text = response.text.strip()
 
-        # Detect if this was a clarification (student asked a question) vs a real probe
-        is_clarification = probe_text.upper().startswith("[CLARIFICATION]")
+        # Detect response type from tag
+        upper = probe_text.upper()
+        is_clarification = upper.startswith("[CLARIFICATION]")
+        is_satisfied = upper.startswith("[SATISFIED]")
+
         # Strip the tag from the displayed text
         clean_text = probe_text
-        for tag in ["[CLARIFICATION]", "[PROBE]"]:
+        for tag in ["[CLARIFICATION]", "[PROBE]", "[SATISFIED]"]:
             if clean_text.upper().startswith(tag):
                 clean_text = clean_text[len(tag):].strip()
                 break
+
+        # If LLM is satisfied, return the affirmation but signal probing is done
+        if is_satisfied:
+            return {
+                "probe_question": clean_text,
+                "probe_number": probe_number,
+                "total_probes": max_probes,
+                "is_clarification": False,
+                "is_satisfied": True,
+            }
 
         return {
             "probe_question": clean_text,
             "probe_number": probe_number,
             "total_probes": max_probes,
             "is_clarification": is_clarification,
+            "is_satisfied": False,
         }
 
     async def grade_session(
