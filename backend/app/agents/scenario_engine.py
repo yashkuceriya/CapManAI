@@ -437,14 +437,23 @@ class ScenarioEngine:
         # 1. Select parameters
         # Pick regime appropriate for difficulty level
         regime_pool = MARKET_REGIMES.get(difficulty, MARKET_REGIMES["beginner"])
-        regime = market_regime or random.choice(regime_pool)
+        # Whitelist: only accept known regimes (prevents prompt injection)
+        if market_regime and market_regime in ALL_REGIMES:
+            regime = market_regime
+        else:
+            regime = random.choice(regime_pool)
         symbol = random.choice(SCENARIO_SYMBOLS)
         diff_config = DIFFICULTY_MAP.get(difficulty, DIFFICULTY_MAP["beginner"])
 
         # Select objectives from the difficulty-appropriate pool
+        # Whitelist: only accept known objective IDs (prevents prompt injection)
         if target_objectives:
-            objectives = target_objectives[:diff_config["num_objectives"]]
+            valid = [o for o in target_objectives if o in LEARNING_OBJECTIVES]
+            objectives = valid[:diff_config["num_objectives"]] if valid else None
         else:
+            objectives = None
+
+        if not objectives:
             pool = diff_config.get("objective_pool", list(LEARNING_OBJECTIVES.keys()))
             objectives = random.sample(
                 pool,
@@ -552,7 +561,10 @@ class ScenarioEngine:
         """
         # ── 1. Same parameter setup as generate_scenario() ──────────────────
         regime_pool = MARKET_REGIMES.get(difficulty, MARKET_REGIMES["beginner"])
-        regime = market_regime or random.choice(regime_pool)
+        if market_regime and market_regime in ALL_REGIMES:
+            regime = market_regime
+        else:
+            regime = random.choice(regime_pool)
         symbol = random.choice(SCENARIO_SYMBOLS)
         diff_config = DIFFICULTY_MAP.get(difficulty, DIFFICULTY_MAP["beginner"])
 
@@ -565,9 +577,14 @@ class ScenarioEngine:
                "symbol": symbol, "company_name": company_name,
                "regime": regime, "regime_display": regime_display}
 
+        # Whitelist objectives
         if target_objectives:
-            objectives = target_objectives[:diff_config["num_objectives"]]
+            valid = [o for o in target_objectives if o in LEARNING_OBJECTIVES]
+            objectives = valid[:diff_config["num_objectives"]] if valid else None
         else:
+            objectives = None
+
+        if not objectives:
             pool = diff_config.get("objective_pool", list(LEARNING_OBJECTIVES.keys()))
             objectives = random.sample(pool, min(diff_config["num_objectives"], len(pool)))
 
