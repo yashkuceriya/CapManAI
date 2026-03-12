@@ -1,0 +1,10 @@
+# Local docs (not for repo)
+DEPLOY.md
+docs/
+frontend/CHECKLIST.md
+frontend/FILE_MANIFEST.md
+frontend/IMPLEMENTATION_COMPLETE.md
+frontend/PHASE_B_HARDENING_COMPLETE.md
+frontend/PROJECT_SUMMARY.md
+frontend/QUICKSTART.md
+frontend/SETUP.md
