@@ -365,7 +365,10 @@ export default function TrainPage() {
         }
       }
     } catch (err: any) {
-      setError(err?.message || 'Failed to generate scenario.')
+      const msg = err?.message || 'Failed to generate scenario.'
+      setError(msg.includes('HTTP') || msg.includes('fetch')
+        ? 'Scenario generation timed out or failed. This is usually temporary — hit Retry.'
+        : msg)
       setState('idle')
     }
   }
@@ -624,17 +627,28 @@ export default function TrainPage() {
 
       {/* Error */}
       {error && (
-        <div className={`mb-6 card border-red-500/20 bg-red-500/[0.03] flex items-start justify-between gap-3 ${
+        <div className={`mb-6 card border-red-500/20 bg-red-500/[0.03] ${
           isErrorExiting ? 'animate-error-exit' : 'animate-fade-in'
         }`}>
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-400">{error}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+            <button onClick={dismissError} className="text-red-400/60 hover:text-red-300 transition-colors flex-shrink-0">
+              <span className="sr-only">Dismiss</span>
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+            </button>
           </div>
-          <button onClick={dismissError} className="text-red-400/60 hover:text-red-300 transition-colors flex-shrink-0">
-            <span className="sr-only">Dismiss</span>
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
-          </button>
+          {state === 'idle' && (
+            <button
+              onClick={() => { dismissError(); handleGenerateScenario() }}
+              className="mt-3 w-full py-2.5 rounded-lg text-sm font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-colors flex items-center justify-center gap-2"
+            >
+              <Zap className="w-4 h-4" />
+              Retry Generation
+            </button>
+          )}
         </div>
       )}
 

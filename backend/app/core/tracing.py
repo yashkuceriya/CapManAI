@@ -11,6 +11,7 @@ LangSmith Dashboard: https://smith.langchain.com
 - Cost analysis: per-session, per-user, per-feature breakdowns
 - Quality monitoring: flag low-confidence grades for review
 """
+import asyncio
 import os
 import time
 import logging
@@ -128,8 +129,25 @@ class TracedAnthropicClient:
         # Track timing
         start_time = time.time()
 
-        # Make the actual API call
-        response = await self.client.messages.create(**kwargs)
+        # Retry with exponential backoff — 3 attempts (2s, 4s delays)
+        max_retries = 3
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                response = await self.client.messages.create(**kwargs)
+                break
+            except Exception as e:
+                last_err = e
+                if attempt < max_retries - 1:
+                    delay = 2 ** (attempt + 1)
+                    logger.warning(
+                        "LLM call failed (attempt %d/%d, purpose=%s): %s — retrying in %ds",
+                        attempt + 1, max_retries, purpose, str(e)[:100], delay,
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error("LLM call failed after %d attempts (purpose=%s): %s", max_retries, purpose, e)
+                    raise last_err
 
         elapsed_ms = round((time.time() - start_time) * 1000, 1)
 
