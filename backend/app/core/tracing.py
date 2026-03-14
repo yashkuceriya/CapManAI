@@ -223,6 +223,16 @@ class TracedResponse:
         }
 
 
+_langsmith_client = None
+
+
+def _get_langsmith_client():
+    global _langsmith_client
+    if _langsmith_client is None:
+        _langsmith_client = LangSmithClient()
+    return _langsmith_client
+
+
 def _log_to_langsmith(
     purpose: str,
     model: str,
@@ -241,10 +251,19 @@ def _log_to_langsmith(
         return
 
     try:
-        client = LangSmithClient()
+        import uuid
+        client = _get_langsmith_client()
+        run_id = uuid.uuid4()
+        now = datetime.utcnow()
+        start = now.timestamp() - (latency_ms / 1000)
+        start_time = datetime.utcfromtimestamp(start)
+
         client.create_run(
             name=f"capman_{purpose}",
             run_type="llm",
+            id=run_id,
+            start_time=start_time,
+            end_time=now,
             inputs={
                 "messages": [{"role": m["role"], "content": m["content"][:500]} for m in messages],
                 "model": model,
