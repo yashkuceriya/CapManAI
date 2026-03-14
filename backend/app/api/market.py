@@ -165,8 +165,8 @@ async def get_flash_cards(count: int = 5):
             "is_live": True,
             "symbol": symbol,
         }
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Flash card generation error: %s", e)
 
     cards = [{"category": f["category"], "fact": f["fact"], "is_live": False} for f in facts]
     if market_card:

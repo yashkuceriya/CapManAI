@@ -124,10 +124,16 @@ export default function MTSSPage() {
     fetchData()
   }, [authLoading, isAuthenticated, user])
 
+  const [trajectory, setTrajectory] = useState<any>(null)
+
   const handleSelectStudent = async (userId: string) => {
     try {
-      const detail = await mtss.getStudent(userId)
+      const [detail, traj] = await Promise.all([
+        mtss.getStudent(userId),
+        mtss.getTrajectory(userId).catch(() => null),
+      ])
       setSelectedStudent(detail)
+      setTrajectory(traj)
     } catch (err) {
       console.error('Failed to load student:', err)
     }
@@ -326,7 +332,7 @@ export default function MTSSPage() {
                   </span>
                 </div>
               </div>
-              <button onClick={() => setSelectedStudent(null)} className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
+              <button onClick={() => { setSelectedStudent(null); setTrajectory(null) }} className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
@@ -350,6 +356,64 @@ export default function MTSSPage() {
               <div className="card-compact border-l-4 border-blue-500 bg-blue-500/5 mb-4">
                 <p className="text-xs text-gray-400 mb-1">Classification Reason</p>
                 <p className="text-sm text-gray-300">{selectedStudent.classification.reason}</p>
+              </div>
+            )}
+
+            {/* Score Trajectory Chart */}
+            {trajectory?.score_trajectory?.length > 1 && (
+              <div className="mb-4">
+                <h4 className="font-semibold text-white mb-2 text-sm">Score Trajectory</h4>
+                <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+                  <div className="flex items-center gap-4 mb-2 text-[11px] text-gray-500">
+                    <span>Avg: <span className="text-white font-bold">{trajectory.summary.avg_score}</span></span>
+                    <span>Best: <span className="text-emerald-400 font-bold">{trajectory.summary.best_score}</span></span>
+                    <span>Recent: <span className="text-cyan-400 font-bold">{trajectory.summary.recent_avg}</span></span>
+                  </div>
+                  <svg viewBox={`0 0 ${Math.max(trajectory.score_trajectory.length * 12, 120)} 60`} className="w-full h-16">
+                    <line x1="0" y1="15" x2="100%" y2="15" stroke="#374151" strokeWidth="0.5" strokeDasharray="2,4" />
+                    <line x1="0" y1="35" x2="100%" y2="35" stroke="#374151" strokeWidth="0.5" strokeDasharray="2,4" />
+                    <polyline
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth="1.5"
+                      strokeLinejoin="round"
+                      points={trajectory.score_trajectory.map((s: any, i: number) => {
+                        const x = (i / (trajectory.score_trajectory.length - 1)) * (trajectory.score_trajectory.length * 12)
+                        const y = 55 - ((s.overall_score || 0) / 100) * 50
+                        return `${x},${y}`
+                      }).join(' ')}
+                    />
+                    {trajectory.score_trajectory.map((s: any, i: number) => {
+                      const x = (i / (trajectory.score_trajectory.length - 1)) * (trajectory.score_trajectory.length * 12)
+                      const y = 55 - ((s.overall_score || 0) / 100) * 50
+                      return (
+                        <circle key={i} cx={x} cy={y} r="2" className={s.curveball_active ? 'fill-amber-400' : 'fill-emerald-400'} opacity={0.8}>
+                          <title>{s.completed_at?.substring(0, 10)}: {s.overall_score}%{s.curveball_active ? ' (curveball)' : ''}</title>
+                        </circle>
+                      )
+                    })}
+                  </svg>
+                </div>
+              </div>
+            )}
+
+            {/* Tier Transition History */}
+            {trajectory?.tier_history?.length > 0 && (
+              <div className="mb-4">
+                <h4 className="font-semibold text-white mb-2 text-sm">Tier History</h4>
+                <div className="space-y-1">
+                  {trajectory.tier_history.map((t: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <span className="text-gray-500 w-20 flex-shrink-0">{t.timestamp?.substring(0, 10)}</span>
+                      <span className="text-gray-400">{t.old_tier}</span>
+                      <span className="text-gray-600">&rarr;</span>
+                      <span className={t.new_tier === 'tier1' ? 'text-emerald-400' : t.new_tier === 'tier2' ? 'text-amber-400' : 'text-red-400'}>
+                        {t.new_tier}
+                      </span>
+                      {t.reason && <span className="text-gray-600 truncate">({t.reason})</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
