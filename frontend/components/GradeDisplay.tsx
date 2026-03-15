@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CheckCircle, AlertCircle, TrendingUp, Award, Zap, AlertTriangle, Target, Brain, BookOpen, Sparkles, Crown } from 'lucide-react'
+import { renderInlineMarkdown } from '@/lib/sanitize'
 
 /* ─── Animated Number Counter ─── */
 function AnimatedNumber({ value, duration = 1500 }: { value: number; duration?: number }) {
@@ -498,7 +499,7 @@ export function GradeDisplay({
                   </div>
                   <AnimatedBar value={dimScore} color={barHex} glowColor={glowHex} />
                   {dim.feedback && (
-                    <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">{dim.feedback}</p>
+                    <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">{renderInlineMarkdown(dim.feedback)}</p>
                   )}
                 </div>
               )

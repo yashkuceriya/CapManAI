@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { scenarios } from '@/lib/api'
+import { renderInlineMarkdown } from '@/lib/sanitize'
 import { stripWatermarks } from '@/lib/sanitize'
 import { Clock, ChevronDown, ChevronUp, ArrowLeft, Zap, Target, TrendingUp } from 'lucide-react'
 import { ThemedLoader } from '@/components/ThemedLoader'
@@ -242,7 +243,7 @@ export default function HistoryPage() {
                     <span className="text-xs font-bold text-gray-500 uppercase mb-1 block">
                       {msg.role === 'assistant' ? 'Instructor' : 'You'}
                     </span>
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <p className="whitespace-pre-wrap">{renderInlineMarkdown(msg.content)}</p>
                   </div>
                 ))}
               </div>
@@ -312,7 +313,7 @@ export default function HistoryPage() {
               </div>
               {selectedDetail.peer_review_feedback && (
                 <p className="text-sm text-gray-300 bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-3">
-                  {selectedDetail.peer_review_feedback}
+                  {renderInlineMarkdown(selectedDetail.peer_review_feedback)}
                 </p>
               )}
             </div>

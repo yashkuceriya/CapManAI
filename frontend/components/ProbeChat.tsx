@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Send, Loader, MessageCircle, Zap } from 'lucide-react'
+import { renderInlineMarkdown } from '@/lib/sanitize'
 
 interface Message {
   role: 'ai' | 'student'
@@ -82,7 +83,7 @@ export function ProbeChat({
                 <p className={`text-sm leading-relaxed ${
                   msg.role === 'ai' ? 'text-gray-200' : 'text-emerald-200'
                 }`}>
-                  {msg.content}
+                  {renderInlineMarkdown(msg.content)}
                 </p>
               </div>
             </div>
