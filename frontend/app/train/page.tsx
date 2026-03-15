@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { scenarios } from '@/lib/api'
+import { scenarios, users } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { useAchievements } from '@/lib/achievement-context'
 import Link from 'next/link'
@@ -300,6 +300,17 @@ export default function TrainPage() {
   const [leveledUp, setLeveledUp] = useState(false)
   const [prevLevel, setPrevLevel] = useState<number | null>(null)
   const [progressEvents, setProgressEvents] = useState<ProgressEvent[]>([])
+  const [recommendedObjectives, setRecommendedObjectives] = useState<string[]>([])
+
+  useEffect(() => {
+    users.getDailyGoal()
+      .then((data: any) => {
+        if (data?.recommended_objectives?.length) {
+          setRecommendedObjectives(data.recommended_objectives)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const sessionId = scenarioData?.session_id
 
@@ -310,15 +321,15 @@ export default function TrainPage() {
     setState('generating')
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const response = await fetch(`${apiBase}/api/scenarios/generate/stream`, {
+      const { url, headers } = scenarios.getStreamConfig()
+      const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ difficulty, market_regime: null, target_objectives: null }),
+        headers,
+        body: JSON.stringify({
+          difficulty,
+          market_regime: null,
+          target_objectives: recommendedObjectives.length > 0 ? recommendedObjectives : null,
+        }),
       })
 
       if (!response.ok) {

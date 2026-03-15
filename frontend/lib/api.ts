@@ -153,17 +153,16 @@ export const users = {
 
 // Scenarios API functions
 export const scenarios = {
-  generateScenario: async (
-    difficulty: 'beginner' | 'intermediate' | 'advanced',
-    marketRegime?: string,
-    targetObjectives?: string[]
-  ) => {
-    const response = await apiClient.post('/api/scenarios/generate', {
-      difficulty,
-      market_regime: marketRegime,
-      target_objectives: targetObjectives,
-    })
-    return response.data
+  getStreamConfig: () => {
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    return {
+      url: `${apiBase}/api/scenarios/generate/stream`,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }
   },
 
   submitResponse: async (sessionId: string, responseText: string) => {
@@ -278,6 +277,13 @@ export const mtss = {
 
   getCorrelation: async () => {
     const response = await apiClient.get('/api/mtss/correlation')
+    return response.data
+  },
+
+  getTrajectory: async (userId: string, limit: number = 30) => {
+    const response = await apiClient.get(`/api/mtss/trajectory/${userId}`, {
+      params: { limit },
+    })
     return response.data
   },
 }

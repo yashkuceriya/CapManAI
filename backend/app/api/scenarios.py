@@ -239,6 +239,7 @@ async def generate_scenario_stream(
                     yield "data: [DONE]\n\n"
 
         except Exception as e:
+            logger.error("SSE generation error: %s", e, exc_info=True)
             yield f"data: {_json.dumps({'type': 'error', 'detail': LLM_UNAVAILABLE_MSG})}\n\n"
 
     return StreamingResponse(
@@ -319,7 +320,7 @@ async def list_replay_events(
 @router.get("/{session_id}/reveal")
 async def get_replay_reveal(
     session_id: str,
-    current_user: Optional[User] = Depends(get_optional_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the historical event reveal AFTER the session is graded.
@@ -331,8 +332,7 @@ async def get_replay_reveal(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Verify ownership if authenticated
-    if current_user and session.user_id != current_user.id:
+    if session.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your session")
 
     if session.status not in ("graded", "reviewed"):

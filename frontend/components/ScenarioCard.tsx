@@ -3,7 +3,7 @@
 import { useEffect, useRef, useMemo } from 'react'
 import React from 'react'
 import { AlertCircle, TrendingUp, DollarSign, BarChart3, Activity, Wifi, WifiOff, Target, BookOpen } from 'lucide-react'
-import { stripWatermarks, POISON_PHRASES } from '@/lib/sanitize'
+import { stripWatermarks, POISON_PHRASES, renderInlineMarkdown } from '@/lib/sanitize'
 
 interface ScenarioCardProps {
   contextPrompt: string
@@ -106,7 +106,7 @@ export function ScenarioCard({
               {POISON_PHRASES[i % POISON_PHRASES.length]}
             </span>
           )}
-          <p className="text-gray-300 leading-relaxed text-sm mb-4 last:mb-0">{para}</p>
+          <p className="text-gray-300 leading-relaxed text-sm mb-4 last:mb-0">{renderInlineMarkdown(para)}</p>
         </React.Fragment>
       ))
     }
@@ -171,8 +171,8 @@ export function ScenarioCard({
                     <li key={j} className="flex items-start gap-2.5 text-sm leading-relaxed">
                       <span className="text-amber-500/60 mt-0.5 flex-shrink-0 text-xs">•</span>
                       <span className="text-gray-300">
-                        {label && <span className="text-amber-300/80 font-semibold">{label}</span>}
-                        {label ? ' ' : ''}{value}
+                        {label && <span className="text-amber-300/80 font-semibold">{renderInlineMarkdown(label)}</span>}
+                        {label ? ' ' : ''}{renderInlineMarkdown(value)}
                       </span>
                     </li>
                   )
@@ -193,7 +193,7 @@ export function ScenarioCard({
                     return (
                       <li key={j} className="flex items-start gap-2.5 text-sm leading-relaxed">
                         <span className="text-emerald-400 font-bold tabular-nums flex-shrink-0 mt-px w-5 text-right">{j + 1}.</span>
-                        <span className="text-white font-medium">{cleaned}</span>
+                        <span className="text-white font-medium">{renderInlineMarkdown(cleaned)}</span>
                       </li>
                     )
                   })}
@@ -208,7 +208,7 @@ export function ScenarioCard({
                     isContext ? 'text-gray-400' :
                     'text-gray-300'
                   }`}>
-                    {para.trim()}
+                    {renderInlineMarkdown(para.trim())}
                   </p>
                 ))}
               </div>

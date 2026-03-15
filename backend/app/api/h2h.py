@@ -105,6 +105,8 @@ async def create_h2h_match(
         "difficulty": result["difficulty"],
     }, session_id=session_p1.id)
 
+    await db.commit()
+
     return {
         "match_id": match.id,
         "scenario": {
